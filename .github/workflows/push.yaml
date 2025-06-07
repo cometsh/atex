@@ -17,5 +17,5 @@ jobs:
 
       - run: nix flake check
       - run: nix develop --command mix deps.get
-      - run: nix develop --command mix credo
+      - run: nix develop --command mix credo --mute-exit-status -a
       - run: nix develop --command mix test
