@@ -1,21 +1,32 @@
-# Atex
+# atex
 
-**TODO: Add description**
+A set of utilities for working with the [AT Protocol](https://atproto.com) in
+Elixir.
+
+## Current Roadmap (in no particular order)
+
+- [x] `at://` parsing and struct
+- [ ] XRPC client
+- [ ] CID & TID codecs
+- [ ] DID & handle resolution service with a cache
+- [ ] Structs with validation for the common lexicons
+  - [ ] Probably codegen for doing this with other lexicons
+- [ ] Oauth stuff
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `atex` to your list of dependencies in `mix.exs`:
+Get atex from [hex.pm](https://hex.pm) by adding it to your `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:atex, "~> 0.1.0"}
+    {:atex, "~> 0.1"}
   ]
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/atex>.
+Documentation can be found on HexDocs at https://hexdocs.pm/atex.
 
+---
+
+This project is licensed under the [MIT License](./LICENSE).
