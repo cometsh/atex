@@ -1,8 +1,9 @@
 defmodule Atex.AtURI do
   @moduledoc """
   Struct and helper functions for manipulating `at://` URIs, which identify
-  specific records within the AT Protocol. For more information on the URI
-  scheme, refer to the ATProto spec: https://atproto.com/specs/at-uri-scheme.
+  specific records within the AT Protocol.
+
+  ATProto spec: https://atproto.com/specs/at-uri-scheme
 
   This module only supports the restricted URI syntax used for the Lexicon
   `at-uri` type, with no support for query strings or fragments. If/when the
@@ -154,5 +155,5 @@ defmodule Atex.AtURI do
 end
 
 defimpl String.Chars, for: Atex.AtURI do
-  def to_string(%Atex.AtURI{} = uri), do: Atex.AtURI.to_string(uri)
+  def to_string(uri), do: Atex.AtURI.to_string(uri)
 end
