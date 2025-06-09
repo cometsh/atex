@@ -26,6 +26,8 @@ defmodule Atex.MixProject do
 
   defp deps do
     [
+      {:multiformats_ex, "~> 0.2"},
+      {:req, "~> 0.5"},
       {:typedstruct, "~> 0.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true}

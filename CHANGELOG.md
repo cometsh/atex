@@ -13,6 +13,7 @@ and this project adheres to
 - `Atex.TID` module for manipulating ATProto TIDs.
 - `Atex.Base32Sortable` module for encoding/decoding numbers as
   `base32-sortable` strings.
+- Basic XRPC client.
 
 ## [0.1.0] - 2025-06-07
 

@@ -6,11 +6,12 @@ Elixir.
 ## Current Roadmap (in no particular order)
 
 - [x] `at://` parsing and struct
-- [ ] XRPC client
-- [ ] CID & TID codecs
+- [x] TID codecs
+- [x] XRPC client
 - [ ] DID & handle resolution service with a cache
 - [ ] Structs with validation for the common lexicons
   - [ ] Probably codegen for doing this with other lexicons
+- [ ] Extended XRPC client with support for validated inputs/outputs
 - [ ] Oauth stuff
 
 ## Installation
