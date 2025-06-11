@@ -1,9 +1,9 @@
-defmodule Atex.XRPC.Adapter.Req do
+defmodule Atex.HTTP.Adapter.Req do
   @moduledoc """
-  `Req` adapter for XRPC.
+  `Req` adapter for atex.
   """
 
-  @behaviour Atex.XRPC.Adapter
+  @behaviour Atex.HTTP.Adapter
 
   def get(url, opts) do
     Req.get(url, opts) |> adapt()

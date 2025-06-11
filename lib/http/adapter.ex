@@ -1,6 +1,6 @@
-defmodule Atex.XRPC.Adapter do
+defmodule Atex.HTTP.Adapter do
   @moduledoc """
-  Behaviour for defining a HTTP client adapter to be used for XRPC.
+  Behaviour for defining a HTTP client adapter to be used within atex.
   """
 
   @type success() :: {:ok, map()}
