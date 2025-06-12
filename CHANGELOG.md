@@ -6,9 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `Atex.XRPC.Adapter` renamed to `Atex.HTTP.Adapter`.
+
+### Added
+
+- `Atex.HTTP` module that delegates to the currently configured adapter.
+
 ## [0.2.0] - 2025-06-09
 
-## Added
+### Added
 
 - `Atex.TID` module for manipulating ATProto TIDs.
 - `Atex.Base32Sortable` module for encoding/decoding numbers as
