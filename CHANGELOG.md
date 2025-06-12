@@ -15,6 +15,9 @@ and this project adheres to
 ### Added
 
 - `Atex.HTTP` module that delegates to the currently configured adapter.
+- `Atex.HTTP.Response` struct to be returned by `Atex.HTTP.Adapter`.
+- `Atex.IdentityResolver` module for resolving and validating an identity,
+  either by DID or a handle.
 
 ## [0.2.0] - 2025-06-09
 

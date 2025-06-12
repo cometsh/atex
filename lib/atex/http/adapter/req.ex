@@ -5,23 +5,34 @@ defmodule Atex.HTTP.Adapter.Req do
 
   @behaviour Atex.HTTP.Adapter
 
+  @impl true
   def get(url, opts) do
     Req.get(url, opts) |> adapt()
   end
 
+  @impl true
   def post(url, opts) do
     Req.post(url, opts) |> adapt()
   end
 
-  defp adapt({:ok, %Req.Response{status: 200} = res}) do
-    {:ok, res.body}
+  @spec adapt({:ok, Req.Response.t()} | {:error, any()}) :: Atex.HTTP.Adapter.result()
+  defp adapt({:ok, %Req.Response{status: status} = res}) when status < 400 do
+    {:ok, to_response(res)}
   end
 
   defp adapt({:ok, %Req.Response{} = res}) do
-    {:error, res.status, res.body}
+    {:error, to_response(res)}
   end
 
   defp adapt({:error, exception}) do
     {:error, exception}
+  end
+
+  defp to_response(%Req.Response{} = res) do
+    %Atex.HTTP.Response{
+      body: res.body,
+      status: res.status,
+      __raw__: res
+    }
   end
 end
