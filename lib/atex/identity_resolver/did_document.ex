@@ -63,12 +63,7 @@ defmodule Atex.IdentityResolver.DIDDocument do
     field :service, list(service())
   end
 
-  # Temporary until this issue is fixed: https://github.com/zoedsoupe/peri/issues/30
-  def new(params) do
-    params
-    |> Recase.Enumerable.atomize_keys(&Recase.to_snake/1)
-    |> then(&struct(__MODULE__, &1))
-  end
+  def new(params), do: struct(__MODULE__, params)
 
   @spec from_json(map()) :: {:ok, t()} | {:error, Peri.Error.t()}
   def from_json(%{} = map) do

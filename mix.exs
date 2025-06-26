@@ -27,7 +27,7 @@ defmodule Atex.MixProject do
 
   defp deps do
     [
-      {:peri, "~> 0.4"},
+      {:peri, "~> 0.5"},
       {:multiformats_ex, "~> 0.2"},
       {:recase, "~> 0.5"},
       {:req, "~> 0.5"},
