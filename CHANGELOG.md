@@ -18,6 +18,8 @@ and this project adheres to
 - `Atex.HTTP.Response` struct to be returned by `Atex.HTTP.Adapter`.
 - `Atex.IdentityResolver` module for resolving and validating an identity,
   either by DID or a handle.
+  - Also has a pluggable cache (with a default ETS implementation) for keeping
+    some data locally.
 
 ## [0.2.0] - 2025-06-09
 
