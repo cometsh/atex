@@ -122,7 +122,7 @@ defmodule Atex.TID do
   """
   @spec decode(String.t()) :: {:ok, t()} | :error
   def decode(<<timestamp::binary-size(11), clock_id::binary-size(2)>> = tid) do
-    if Regex.match?(@re, tid) do
+    if match?(tid) do
       timestamp = Base32Sortable.decode(timestamp)
       clock_id = Base32Sortable.decode(clock_id)
 
@@ -162,6 +162,26 @@ defmodule Atex.TID do
     clock_id = (tid.clock_id &&& 1023) |> Base32Sortable.encode() |> String.pad_leading(2, "2")
     timestamp <> clock_id
   end
+
+  @doc """
+  Check if a given string matches the format for a TID.
+
+  ## Examples
+
+    iex> Atex.TID.match?("3jzfcijpj2z2a")
+    true
+
+    iex> Atex.TID.match?("2222222222222")
+    true
+
+    iex> Atex.TID.match?("banana")
+    false
+
+    iex> Atex.TID.match?("kjzfcijpj2z2a")
+    false
+  """
+  @spec match?(String.t()) :: boolean()
+  def match?(value), do: Regex.match?(@re, value)
 end
 
 defimpl String.Chars, for: Atex.TID do

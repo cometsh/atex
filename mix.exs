@@ -32,6 +32,7 @@ defmodule Atex.MixProject do
       {:recase, "~> 0.5"},
       {:req, "~> 0.5"},
       {:typedstruct, "~> 0.5"},
+      {:ex_cldr, "~> 2.42"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true}
     ]

@@ -25,3 +25,4 @@ atex-*.tar
 .envrc
 .direnv
 .vscode/
+.elixir_ls
