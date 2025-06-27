@@ -24,3 +24,4 @@ atex-*.tar
 
 .envrc
 .direnv
+.vscode/

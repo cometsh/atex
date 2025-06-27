@@ -2,12 +2,19 @@ defmodule Atex.IdentityResolver do
   alias Atex.IdentityResolver.{Cache, DID, DIDDocument, Handle, Identity}
 
   @handle_strategy Application.compile_env(:atex, :handle_resolver_strategy, :dns_first)
+  @type options() :: {:skip_cache, boolean()}
 
   # TODO: simplify errors
 
-  def resolve(identifier) do
+  @spec resolve(String.t(), list(options())) :: {:ok, Identity.t()} | {:error, any()}
+  def resolve(identifier, opts \\ []) do
+    opts = Keyword.validate!(opts, skip_cache: false)
+    skip_cache = Keyword.get(opts, :skip_cache)
+
+    cache_result = if skip_cache, do: {:error, :not_found}, else: Cache.get(identifier)
+
     # If cache fetch succeeds, then the ok tuple will be retuned by the default `with` behaviour
-    with {:error, :not_found} <- Cache.get(identifier),
+    with {:error, :not_found} <- cache_result,
          {:ok, identity} <- do_resolve(identifier),
          identity <- Cache.insert(identity) do
       {:ok, identity}

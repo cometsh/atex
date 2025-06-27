@@ -68,8 +68,6 @@ defmodule Atex.IdentityResolver.DIDDocument do
   @spec from_json(map()) :: {:ok, t()} | {:error, Peri.Error.t()}
   def from_json(%{} = map) do
     map
-    # TODO: `atomize_keys` instead? Peri doesn't convert nested schemas to atoms but does for the base schema.
-    # Smells like a PR if I've ever smelt one...
     |> Recase.Enumerable.convert_keys(&Recase.to_snake/1)
     |> schema()
     |> case do
