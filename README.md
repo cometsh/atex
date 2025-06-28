@@ -8,7 +8,7 @@ Elixir.
 - [x] `at://` parsing and struct
 - [x] TID codecs
 - [x] XRPC client
-- [ ] DID & handle resolution service with a cache
+- [x] DID & handle resolution service with a cache
 - [ ] Structs with validation for the common lexicons
   - [ ] Probably codegen for doing this with other lexicons
 - [ ] Extended XRPC client with support for validated inputs/outputs
@@ -21,7 +21,7 @@ Get atex from [hex.pm](https://hex.pm) by adding it to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:atex, "~> 0.1"}
+    {:atex, "~> 0.3"}
   ]
 end
 ```
