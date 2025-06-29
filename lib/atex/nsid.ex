@@ -9,4 +9,33 @@ defmodule Atex.NSID do
 
   # TODO: methods for fetching the authority and name from a nsid.
   # maybe stuff for fetching the repo that belongs to an authority
+
+  @spec to_atom(String.t()) :: atom()
+  def to_atom(nsid) do
+    nsid
+    |> String.split(".")
+    |> Enum.map(&String.capitalize/1)
+    |> then(&["Elixir" | &1])
+    |> Enum.join(".")
+    |> String.to_atom()
+  end
+
+  @spec to_atom_with_fragment(String.t()) :: {atom(), atom()}
+  def to_atom_with_fragment(nsid) do
+    if !String.contains?(nsid, "#") do
+      {to_atom(nsid), :main}
+    else
+      [nsid, fragment] = String.split(nsid, "#")
+      {to_atom(nsid), String.to_atom(fragment)}
+    end
+  end
+
+  @spec expand_possible_fragment_shorthand(String.t(), String.t()) :: String.t()
+  def expand_possible_fragment_shorthand(main_nsid, possible_fragment) do
+    if String.starts_with?(possible_fragment, "#") do
+      main_nsid <> possible_fragment
+    else
+      possible_fragment
+    end
+  end
 end

@@ -1,16 +1,19 @@
 defmodule Atex.Lexicon.Validators do
   alias Atex.Lexicon.Validators
 
-  @type blob_option() :: {:accept, list(String.t())} | {:max_size, integer()}
+  @type blob_option() :: {:accept, list(String.t())} | {:max_size, pos_integer()}
 
   @type blob_t() ::
           %{
             "$type": String.t(),
-            req: %{"$link": String.t()},
+            ref: %{"$link": String.t()},
             mimeType: String.t(),
             size: integer()
           }
-          | %{}
+          | %{
+              cid: String.t(),
+              mimeType: String.t()
+            }
 
   @spec string(list(Validators.String.option())) :: Peri.custom_def()
   def string(options \\ []), do: {:custom, {Validators.String, :validate, [options]}}
@@ -20,7 +23,6 @@ defmodule Atex.Lexicon.Validators do
 
   @spec array(Peri.schema_def(), list(Validators.Array.option())) :: Peri.custom_def()
   def array(inner_type, options \\ []) do
-    {:ok, ^inner_type} = Peri.validate_schema(inner_type)
     {:custom, {Validators.Array, :validate, [inner_type, options]}}
   end
 
@@ -49,10 +51,29 @@ defmodule Atex.Lexicon.Validators do
         },
         # Old deprecated blobs
         %{
-          cid: {:reqiured, :string},
+          cid: {:required, :string},
           mimeType: mime_type
         }
       }
+    }
+  end
+
+  @spec bytes(list(Validators.Bytes.option())) :: Peri.schema()
+  def bytes(options \\ []) do
+    options = Keyword.validate!(options, min_length: nil, max_length: nil)
+
+    %{
+      "$bytes":
+        {:required,
+         {{:custom, {Validators.Bytes, :validate, [options]}}, {:transform, &Base.decode64!/1}}}
+    }
+  end
+
+  # TODO: see what atcute validators expect
+  # TODO: cid validation?
+  def cid_link() do
+    %{
+      "$link": {:required, :string}
     }
   end
 

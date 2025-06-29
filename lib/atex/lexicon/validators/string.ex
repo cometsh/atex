@@ -20,17 +20,13 @@ defmodule Atex.Lexicon.Validators.String do
           | {:max_length, non_neg_integer()}
           | {:min_graphemes, non_neg_integer()}
           | {:max_graphemes, non_neg_integer()}
-          | {:enum, list(String.t())}
-          | {:const, String.t()}
 
   @option_keys [
     :format,
     :min_length,
     :max_length,
     :min_graphemes,
-    :max_graphemes,
-    :enum,
-    :const
+    :max_graphemes
   ]
 
   @record_key_re ~r"^[a-zA-Z0-9.-_:~]$"
@@ -62,9 +58,7 @@ defmodule Atex.Lexicon.Validators.String do
       min_length: nil,
       max_length: nil,
       min_graphemes: nil,
-      max_graphemes: nil,
-      enum: nil,
-      const: nil
+      max_graphemes: nil
     )
     # Stream so we early exit at the first error.
     |> Stream.map(&validate_option(value, &1))
@@ -168,15 +162,4 @@ defmodule Atex.Lexicon.Validators.String do
         "should have a maximum length of #{expected}",
         length: expected
       )
-
-  defp validate_option(value, {:enum, values}),
-    do:
-      Validators.boolean_validate(value in values, "should be one of the expected values",
-        enum: values
-      )
-
-  defp validate_option(value, {:const, expected}) when value == expected, do: :ok
-
-  defp validate_option(value, {:const, expected}),
-    do: {:error, "should match constant value", [actual: value, expected: expected]}
 end

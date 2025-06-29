@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- ## [Unreleased] -->
+## [Unreleased]
+
+### Added
+
+- `Atex.Lexicon` module that provides the `deflexicon` macro, taking in a JSON
+  Lexicon definition and converts it into a series of schemas for each
+  definition within it.
 
 ## [0.3.0] - 2025-06-29
 

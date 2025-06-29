@@ -14,4 +14,27 @@ defmodule Atex.Peri do
   end
 
   defp validate_uri(uri), do: {:error, "must be a valid URI", [uri: uri]}
+
+  def validate_map(value, schema, extra_keys_schema) when is_map(value) and is_map(schema) do
+    extra_keys =
+      Enum.reduce(Map.keys(schema), MapSet.new(Map.keys(value)), fn key, acc ->
+        acc |> MapSet.delete(key) |> MapSet.delete(to_string(key))
+      end)
+
+    extra_data =
+      value
+      |> Enum.filter(fn {key, _} -> MapSet.member?(extra_keys, key) end)
+      |> Map.new()
+
+    with {:ok, schema_data} <- Peri.validate(schema, value),
+         {:ok, extra_data} <- Peri.validate(extra_keys_schema, extra_data) do
+      {:ok, Map.merge(schema_data, extra_data)}
+    else
+      {:error, %Peri.Error{} = err} -> {:error, [err]}
+      e -> e
+    end
+  end
+
+  def validate_map(value, _schema, _extra_keys_schema),
+    do: {:error, "must be a map", [value: value]}
 end

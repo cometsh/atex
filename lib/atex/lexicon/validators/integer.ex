@@ -4,19 +4,15 @@ defmodule Atex.Lexicon.Validators.Integer do
   @type option() ::
           {:minimum, integer()}
           | {:maximum, integer()}
-          | {:enum, list(integer())}
-          | {:const, integer()}
 
-  @option_keys [:minimum, :maximum, :enum, :const]
+  @option_keys [:minimum, :maximum]
 
   @spec validate(term(), list(option())) :: Peri.validation_result()
   def validate(value, options) when is_integer(value) do
     options
     |> Keyword.validate!(
       minimum: nil,
-      maximum: nil,
-      enum: nil,
-      const: nil
+      maximum: nil
     )
     |> Stream.map(&validate_option(value, &1))
     |> Enum.find(:ok, fn x -> x != :ok end)
@@ -41,15 +37,4 @@ defmodule Atex.Lexicon.Validators.Integer do
 
   defp validate_option(value, {:maximum, expected}) when value > expected,
     do: {:error, "", [value: expected]}
-
-  defp validate_option(value, {:enum, values}),
-    do:
-      Validators.boolean_validate(value in values, "should be one of the expected values",
-        enum: values
-      )
-
-  defp validate_option(value, {:const, expected}) when value == expected, do: :ok
-
-  defp validate_option(value, {:const, expected}),
-    do: {:error, "should match constant value", [actual: value, expected: expected]}
 end
