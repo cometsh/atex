@@ -2,7 +2,8 @@ defmodule Atex.MixProject do
   use Mix.Project
 
   @version "0.3.0"
-  @source_url "https://github.com/cometsh/atex"
+  @github "https://github.com/cometsh/atex"
+  @tangled "https://tangled.sh/@comet.sh/atex"
 
   def project do
     [
@@ -41,7 +42,7 @@ defmodule Atex.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"GitHub" => @source_url}
+      links: %{"GitHub" => @github, "Tangled" => @tangled}
     ]
   end
 
@@ -52,7 +53,7 @@ defmodule Atex.MixProject do
         "README.md": [title: "Overview"]
       ],
       main: "readme",
-      source_url: @source_url,
+      source_url: @github,
       source_ref: "v#{@version}",
       formatters: ["html"]
     ]

@@ -9,8 +9,8 @@ Elixir.
 - [x] TID codecs
 - [x] XRPC client
 - [x] DID & handle resolution service with a cache
-- [ ] Structs with validation for the common lexicons
-  - [ ] Probably codegen for doing this with other lexicons
+- [x] Macro for converting a Lexicon definition into a runtime-validation schema
+  - [ ] Codegen to convert a directory of lexicons
 - [ ] Extended XRPC client with support for validated inputs/outputs
 - [ ] Oauth stuff
 
