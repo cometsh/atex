@@ -3,7 +3,7 @@ defmodule Atex.Lexicon.Validators do
 
   @type blob_option() :: {:accept, list(String.t())} | {:max_size, pos_integer()}
 
-  @type blob_t() ::
+  @type blob() ::
           %{
             "$type": String.t(),
             ref: %{"$link": String.t()},
@@ -14,6 +14,10 @@ defmodule Atex.Lexicon.Validators do
               cid: String.t(),
               mimeType: String.t()
             }
+
+  @type cid_link() :: %{"$link": String.t()}
+
+  @type bytes() :: %{"$bytes": binary()}
 
   @spec string(list(Validators.String.option())) :: Peri.custom_def()
   def string(options \\ []), do: {:custom, {Validators.String, :validate, [options]}}
