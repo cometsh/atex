@@ -207,7 +207,9 @@ defmodule Atex.Lexicon do
               "string",
               "bytes",
               "cid-link",
-              "unknown"
+              "unknown",
+              "ref",
+              "union"
             ] do
     {quoted_schema, quoted_type} = field_to_schema(def, nsid)
     [{atomise(def_name), quoted_schema, quoted_type}]
