@@ -1,0 +1,5 @@
+defmodule <%= Atex.NSID.to_atom(lexicon["id"], false) %> do
+  use Atex.Lexicon
+
+  deflexicon(<%= inspect(lexicon, limit: :infinity, pretty: true, printable_limit: :infinity) %>)
+end

@@ -1,6 +1,4 @@
 defmodule Atex.Lexicon.Validators.Integer do
-  alias Atex.Lexicon.Validators
-
   @type option() ::
           {:minimum, integer()}
           | {:maximum, integer()}

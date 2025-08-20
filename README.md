@@ -10,7 +10,7 @@ Elixir.
 - [x] XRPC client
 - [x] DID & handle resolution service with a cache
 - [x] Macro for converting a Lexicon definition into a runtime-validation schema
-  - [ ] Codegen to convert a directory of lexicons
+  - [x] Codegen to convert a directory of lexicons
 - [ ] Extended XRPC client with support for validated inputs/outputs
 - [ ] Oauth stuff
 

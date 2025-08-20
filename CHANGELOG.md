@@ -13,6 +13,8 @@ and this project adheres to
 - `Atex.Lexicon` module that provides the `deflexicon` macro, taking in a JSON
   Lexicon definition and converts it into a series of schemas for each
   definition within it.
+- `mix atex.lexicons` for converting lexicon JSON files into modules using
+  `deflexicon` easily.
 
 ## [0.3.0] - 2025-06-29
 

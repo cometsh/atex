@@ -11,11 +11,17 @@ defmodule Atex.NSID do
   # maybe stuff for fetching the repo that belongs to an authority
 
   @spec to_atom(String.t()) :: atom()
-  def to_atom(nsid) do
+  def to_atom(nsid, fully_qualify \\ true) do
     nsid
     |> String.split(".")
     |> Enum.map(&String.capitalize/1)
-    |> then(&["Elixir" | &1])
+    |> then(fn parts ->
+      if fully_qualify do
+        ["Elixir" | parts]
+      else
+        parts
+      end
+    end)
     |> Enum.join(".")
     |> String.to_atom()
   end

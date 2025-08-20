@@ -58,7 +58,7 @@ defmodule Atex.Lexicon do
     def_to_schema(nsid, def_name, record)
   end
 
-  # TODO: add `$type` field. It's just a string though.
+  # TODO: need to spit out an extra 'branded' type with `$type` field, for use in union refs.
   defp def_to_schema(
          nsid,
          def_name,
