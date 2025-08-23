@@ -26,3 +26,5 @@ atex-*.tar
 .direnv
 .vscode/
 .elixir_ls
+lexicons
+lib/atproto
