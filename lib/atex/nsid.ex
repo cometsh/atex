@@ -14,7 +14,7 @@ defmodule Atex.NSID do
   def to_atom(nsid, fully_qualify \\ true) do
     nsid
     |> String.split(".")
-    |> Enum.map(&String.capitalize/1)
+    |> Enum.map(&Recase.to_pascal/1)
     |> then(fn parts ->
       if fully_qualify do
         ["Elixir" | parts]
