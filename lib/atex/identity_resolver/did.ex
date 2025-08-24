@@ -14,7 +14,7 @@ defmodule Atex.IdentityResolver.DID do
   @spec resolve_plc(String.t()) :: resolution_result()
   defp resolve_plc("did:plc:" <> _id = did) do
     with {:ok, resp} when resp.status in 200..299 <-
-           Atex.HTTP.get("https://plc.directory/#{did}", []),
+           Req.get("https://plc.directory/#{did}"),
          {:ok, body} <- decode_body(resp.body),
          {:ok, document} <- DIDDocument.from_json(body),
          :ok <- DIDDocument.validate_for_atproto(document, did) do
@@ -29,7 +29,7 @@ defmodule Atex.IdentityResolver.DID do
   @spec resolve_web(String.t()) :: resolution_result()
   defp resolve_web("did:web:" <> domain = did) do
     with {:ok, resp} when resp.status in 200..299 <-
-           Atex.HTTP.get("https://#{domain}/.well-known/did.json", []),
+           Req.get("https://#{domain}/.well-known/did.json"),
          {:ok, body} <- decode_body(resp.body),
          {:ok, document} <- DIDDocument.from_json(body),
          :ok <- DIDDocument.validate_for_atproto(document, did) do

@@ -55,7 +55,7 @@ defmodule Atex.IdentityResolver.Handle do
 
   @spec resolve_via_http(String.t()) :: {:ok, String.t()} | :error
   defp resolve_via_http(handle) do
-    case Atex.HTTP.get("https://#{handle}/.well-known/atproto-did", []) do
+    case Req.get("https://#{handle}/.well-known/atproto-did") do
       {:ok, %{body: "did:" <> _ = did}} -> {:ok, did}
       _ -> :error
     end
