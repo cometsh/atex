@@ -6,7 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- ## [Unreleased] -->
+## [Unreleased]
+
+### Breaking Changes
+
+- Remove `Atex.HTTP` and associated modules as the abstraction caused a bit too
+  much complexities for how early atex is. It may come back in the future as
+  something more fleshed out once we're more stable.
+
+### Features
+
+- Add `Atex.OAuth` module with utilites for handling some OAuth functionality.
+- Add `Atex.OAuth.Plug` module (if Plug is loaded) which provides a basic but
+  complete OAuth flow, including storing the tokens in `Plug.Session`.
 
 ## [0.4.0] - 2025-08-27
 

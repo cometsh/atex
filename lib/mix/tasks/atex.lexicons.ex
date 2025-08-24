@@ -44,7 +44,7 @@ defmodule Mix.Tasks.Atex.Lexicons do
   @aliases [o: :output]
   @template_path Path.expand("../../../priv/templates/lexicon.eex", __DIR__)
 
-  @impl Mix.Task
+  @impl true
   def run(args) do
     {options, globs} = OptionParser.parse!(args, switches: @switches, aliases: @aliases)
 

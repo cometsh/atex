@@ -28,3 +28,7 @@ atex-*.tar
 .elixir_ls
 lexicons
 lib/atproto
+secrets
+node_modules
+atproto-oauth-example
+.DS_Store

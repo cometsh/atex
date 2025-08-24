@@ -39,9 +39,9 @@ defmodule Atex.XRPC.Client do
       iex> Atex.XRPC.Client.login("https://bsky.social", "example.com", "password123")
       {:ok, %Atex.XRPC.Client{...}}
   """
-  @spec login(String.t(), String.t(), String.t()) :: {:ok, t()} | HTTP.Adapter.error()
+  @spec login(String.t(), String.t(), String.t()) :: {:ok, t()} | {:error, any()}
   @spec login(String.t(), String.t(), String.t(), String.t() | nil) ::
-          {:ok, t()} | HTTP.Adapter.error()
+          {:ok, t()} | {:error, any()}
   def login(endpoint, identifier, password, auth_factor_token \\ nil) do
     json =
       %{identifier: identifier, password: password}
@@ -67,7 +67,7 @@ defmodule Atex.XRPC.Client do
   @doc """
   Request a new `refresh_token` for the given client.
   """
-  @spec refresh(t()) :: {:ok, t()} | HTTP.Adapter.error()
+  @spec refresh(t()) :: {:ok, t()} | {:error, any()}
   def refresh(%__MODULE__{endpoint: endpoint, refresh_token: refresh_token} = client) do
     response =
       XRPC.unauthed_post(

@@ -125,6 +125,19 @@ defmodule Atex.IdentityResolver.DIDDocument do
     end)
   end
 
+  @spec get_pds_endpoint(t()) :: String.t() | nil
+  def get_pds_endpoint(%__MODULE__{} = doc) do
+    doc.service
+    |> Enum.find(fn
+      %{id: "#atproto_pds", type: "AtprotoPersonalDataServer"} -> true
+      _ -> false
+    end)
+    |> case do
+      nil -> nil
+      pds -> pds.service_endpoint
+    end
+  end
+
   defp valid_pds_endpoint?(endpoint) do
     case URI.new(endpoint) do
       {:ok, uri} ->

@@ -1,5 +1,5 @@
 defmodule Atex.XRPC do
-  alias Atex.{HTTP, XRPC}
+  alias Atex.XRPC
 
   # TODO: automatic user-agent, and env for changing it
 
@@ -12,38 +12,40 @@ defmodule Atex.XRPC do
   @doc """
   Perform a HTTP GET on a XRPC resource. Called a "query" in lexicons.
   """
-  @spec get(XRPC.Client.t(), String.t(), keyword()) :: HTTP.Adapter.result()
+  @spec get(XRPC.Client.t(), String.t(), keyword()) :: {:ok, Req.Response.t()} | {:error, any()}
   def get(%XRPC.Client{} = client, name, opts \\ []) do
     opts = put_auth(opts, client.access_token)
-    HTTP.get(url(client, name), opts)
+    Req.get(url(client, name), opts)
   end
 
   @doc """
   Perform a HTTP POST on a XRPC resource. Called a "prodecure" in lexicons.
   """
-  @spec post(XRPC.Client.t(), String.t(), keyword()) :: HTTP.Adapter.result()
+  @spec post(XRPC.Client.t(), String.t(), keyword()) :: {:ok, Req.Response.t()} | {:error, any()}
   def post(%XRPC.Client{} = client, name, opts \\ []) do
     # TODO: look through available HTTP clients and see if they have a
     # consistent way of providing JSON bodies with auto content-type. If not,
     # create one for adapters.
     opts = put_auth(opts, client.access_token)
-    HTTP.post(url(client, name), opts)
+    Req.post(url(client, name), opts)
   end
 
   @doc """
   Like `get/3` but is unauthenticated by default.
   """
-  @spec unauthed_get(String.t(), String.t(), keyword()) :: HTTP.Adapter.result()
+  @spec unauthed_get(String.t(), String.t(), keyword()) ::
+          {:ok, Req.Response.t()} | {:error, any()}
   def unauthed_get(endpoint, name, opts \\ []) do
-    HTTP.get(url(endpoint, name), opts)
+    Req.get(url(endpoint, name), opts)
   end
 
   @doc """
   Like `post/3` but is unauthenticated by default.
   """
-  @spec unauthed_post(String.t(), String.t(), keyword()) :: HTTP.Adapter.result()
+  @spec unauthed_post(String.t(), String.t(), keyword()) ::
+          {:ok, Req.Response.t()} | {:error, any()}
   def unauthed_post(endpoint, name, opts \\ []) do
-    HTTP.post(url(endpoint, name), opts)
+    Req.post(url(endpoint, name), opts)
   end
 
   # TODO: use URI module for joining instead?
