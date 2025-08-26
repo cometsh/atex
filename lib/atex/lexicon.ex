@@ -64,10 +64,10 @@ defmodule Atex.Lexicon do
          def_name,
          %{
            type: "object",
-           properties: properties,
-           required: required
+           properties: properties
          } = def
        ) do
+    required = Map.get(def, :required, [])
     nullable = Map.get(def, :nullable, [])
 
     properties
@@ -114,8 +114,7 @@ defmodule Atex.Lexicon do
         [schema] =
           def_to_schema(nsid, "params", %{
             type: "object",
-            required: def.parameters.required,
-            nullable: [],
+            required: Map.get(def.parameters, :required, []),
             properties: def.parameters.properties
           })
 
@@ -123,7 +122,7 @@ defmodule Atex.Lexicon do
       end
 
     output =
-      if def.output && def.output.schema do
+      if def[:output] && def.output[:schema] do
         [schema] = def_to_schema(nsid, "output", def.output.schema)
         schema
       end
@@ -139,7 +138,7 @@ defmodule Atex.Lexicon do
         [schema] =
           def_to_schema(nsid, "params", %{
             type: "object",
-            required: def.parameters.required,
+            required: Map.get(def.parameters, :required, []),
             properties: def.parameters.properties
           })
 
@@ -147,14 +146,14 @@ defmodule Atex.Lexicon do
       end
 
     output =
-      if def[:output] && def.output.schema do
+      if def[:output] && def.output[:schema] do
         [schema] = def_to_schema(nsid, "output", def.output.schema)
         schema
       end
 
     input =
-      if def[:input] && def.input.schema do
-        [schema] = def_to_schema(nsid, "output", def.input.schema)
+      if def[:input] && def.input[:schema] do
+        [schema] = def_to_schema(nsid, "input", def.input.schema)
         schema
       end
 
@@ -168,7 +167,7 @@ defmodule Atex.Lexicon do
         [schema] =
           def_to_schema(nsid, "params", %{
             type: "object",
-            required: def.parameters.required,
+            required: Map.get(def.parameters, :required, []),
             properties: def.parameters.properties
           })
 
@@ -234,13 +233,13 @@ defmodule Atex.Lexicon do
       |> Enum.map(fn {k, v} -> {Recase.to_snake(k), v} end)
       |> then(&{:custom, {Validators.String, :validate, [&1]}})
       |> maybe_default(field)
-      |> then(
-        &{Macro.escape(&1),
-         quote do
-           String.t()
-         end}
-      )
     end
+    |> then(
+      &{Macro.escape(&1),
+       quote do
+         String.t()
+       end}
+    )
   end
 
   defp field_to_schema(%{type: "boolean"} = field, _nsid) do
@@ -351,31 +350,37 @@ defmodule Atex.Lexicon do
   end
 
   defp field_to_schema(%{type: "union", refs: refs}, nsid) do
-    refs
-    |> Enum.map(fn ref ->
-      {nsid, fragment} =
-        nsid
-        |> Atex.NSID.expand_possible_fragment_shorthand(ref)
-        |> Atex.NSID.to_atom_with_fragment()
+    if refs == [] do
+      {quote do
+         {:oneof, []}
+       end, nil}
+    else
+      refs
+      |> Enum.map(fn ref ->
+        {nsid, fragment} =
+          nsid
+          |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+          |> Atex.NSID.to_atom_with_fragment()
 
-      {quote do
-         unquote(nsid).get_schema(unquote(fragment))
-       end,
-       quote do
-         unquote(nsid).unquote(fragment)()
-       end}
-    end)
-    |> Enum.reduce({[], []}, fn {quoted_schema, quoted_type}, {schemas, types} ->
-      {[quoted_schema | schemas], [quoted_type | types]}
-    end)
-    |> then(fn {schemaa, types} ->
-      {quote do
-         {:oneof, unquote(schemaa)}
-       end,
-       quote do
-         unquote(join_with_pipe(types))
-       end}
-    end)
+        {quote do
+           unquote(nsid).get_schema(unquote(fragment))
+         end,
+         quote do
+           unquote(nsid).unquote(fragment)()
+         end}
+      end)
+      |> Enum.reduce({[], []}, fn {quoted_schema, quoted_type}, {schemas, types} ->
+        {[quoted_schema | schemas], [quoted_type | types]}
+      end)
+      |> then(fn {schemas, types} ->
+        {quote do
+           {:oneof, unquote(schemas)}
+         end,
+         quote do
+           unquote(join_with_pipe(types))
+         end}
+      end)
+    end
   end
 
   # TODO: apparently should be a data object, not a primitive?

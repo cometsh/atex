@@ -3,11 +3,7 @@ defmodule Atex.Lexicon.Schema do
 
   defschema :lexicon, %{
     lexicon: {:required, {:literal, 1}},
-    id:
-      {:required,
-       {:string,
-        {:regex,
-         ~r/^[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(\.[a-zA-Z]([a-zA-Z]{0,61}[a-zA-Z])?)$/}}},
+    id: {:required, {:string, {:regex, Atex.NSID.re()}}},
     revision: {:integer, {:gte, 0}},
     description: :string,
     defs: {
@@ -66,7 +62,8 @@ defmodule Atex.Lexicon.Schema do
   defschema :parameters, %{
     type: {:required, {:literal, "params"}},
     description: :string,
-    required: {{:list, :string}, {:default, []}},
+    # required: {{:list, :string}, {:default, []}},
+    required: {:list, :string},
     properties:
       {:required, {:map, {:either, {get_schema(:primitive), get_schema(:primitive_array)}}}}
   }
@@ -145,8 +142,10 @@ defmodule Atex.Lexicon.Schema do
   defschema :object, %{
     type: {:required, {:literal, "object"}},
     description: :string,
-    required: {{:list, :string}, {:default, []}},
-    nullable: {{:list, :string}, {:default, []}},
+    # required: {{:list, :string}, {:default, []}},
+    # nullable: {{:list, :string}, {:default, []}},
+    required: {:list, :string},
+    nullable: {:list, :string},
     properties:
       {:required,
        {:map,

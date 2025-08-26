@@ -1,5 +1,6 @@
 defmodule Atex.NSID do
-  @re ~r/^[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?:\\.[a-zA-Z](?:[a-zA-Z0-9]{0,62})?)$/
+  @re ~r/^[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?:\.[a-zA-Z](?:[a-zA-Z0-9]{0,62})?)$/
+  # TODO: regex with support for fragment
 
   @spec re() :: Regex.t()
   def re, do: @re
