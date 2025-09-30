@@ -381,7 +381,7 @@ defmodule Atex.OAuth do
   end
 
   @spec create_client_assertion(JOSE.JWK.t(), String.t(), String.t()) :: String.t()
-  defp create_client_assertion(jwk, client_id, issuer) do
+  def create_client_assertion(jwk, client_id, issuer) do
     iat = System.os_time(:second)
     jti = random_b64(20)
     jws = %{"alg" => "ES256", "kid" => jwk.fields["kid"]}
@@ -401,7 +401,7 @@ defmodule Atex.OAuth do
   end
 
   @spec create_dpop_token(JOSE.JWK.t(), Req.Request.t(), any(), map()) :: String.t()
-  defp create_dpop_token(jwk, request, nonce \\ nil, attrs \\ %{}) do
+  def create_dpop_token(jwk, request, nonce \\ nil, attrs \\ %{}) do
     iat = System.os_time(:second)
     jti = random_b64(20)
     {_, public_jwk} = JOSE.JWK.to_public_map(jwk)

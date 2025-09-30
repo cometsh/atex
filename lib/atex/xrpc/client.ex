@@ -1,87 +1,31 @@
 defmodule Atex.XRPC.Client do
   @moduledoc """
-  Struct to store client information for ATProto XRPC.
+  Behaviour that defines the interface for XRPC clients.
+
+  This behaviour allows different types of clients (login-based, OAuth-based, etc.)
+  to implement authentication and request handling while maintaining a consistent interface.
+
+  Implementations must handle token refresh internally when requests fail due to
+  expired tokens, and return both the result and potentially updated client state.
   """
 
-  alias Atex.{XRPC, HTTP}
-  use TypedStruct
-
-  typedstruct do
-    field :endpoint, String.t(), enforce: true
-    field :access_token, String.t() | nil
-    field :refresh_token, String.t() | nil
-  end
+  @type client :: struct()
+  @type request_opts :: keyword()
+  @type request_result :: {:ok, Req.Response.t(), client()} | {:error, any(), client()}
 
   @doc """
-  Create a new `Atex.XRPC.Client` from an endpoint, and optionally an
-  access/refresh token.
+  Perform an authenticated HTTP GET request on an XRPC resource.
 
-  Endpoint should be the base URL of a PDS, or an AppView in the case of
-  unauthenticated requests (like Bluesky's public API), e.g.
-  `https://bsky.social`.
+  Implementations should handle token refresh if the request fails due to
+  expired authentication, returning both the response and the (potentially updated) client.
   """
-  @spec new(String.t()) :: t()
-  @spec new(String.t(), String.t() | nil) :: t()
-  @spec new(String.t(), String.t() | nil, String.t() | nil) :: t()
-  def new(endpoint, access_token \\ nil, refresh_token \\ nil) do
-    %__MODULE__{endpoint: endpoint, access_token: access_token, refresh_token: refresh_token}
-  end
+  @callback get(client(), String.t(), request_opts()) :: request_result()
 
   @doc """
-  Create a new `Atex.XRPC.Client` by logging in with an `identifier` and
-  `password` to fetch an initial pair of access & refresh tokens.
+  Perform an authenticated HTTP POST request on an XRPC resource.
 
-  Uses `com.atproto.server.createSession` under the hood, so `identifier` can be
-  either a handle or a DID.
-
-  ## Examples
-
-      iex> Atex.XRPC.Client.login("https://bsky.social", "example.com", "password123")
-      {:ok, %Atex.XRPC.Client{...}}
+  Implementations should handle token refresh if the request fails due to
+  expired authentication, returning both the response and the (potentially updated) client.
   """
-  @spec login(String.t(), String.t(), String.t()) :: {:ok, t()} | {:error, any()}
-  @spec login(String.t(), String.t(), String.t(), String.t() | nil) ::
-          {:ok, t()} | {:error, any()}
-  def login(endpoint, identifier, password, auth_factor_token \\ nil) do
-    json =
-      %{identifier: identifier, password: password}
-      |> then(
-        &if auth_factor_token do
-          Map.merge(&1, %{authFactorToken: auth_factor_token})
-        else
-          &1
-        end
-      )
-
-    response = XRPC.unauthed_post(endpoint, "com.atproto.server.createSession", json: json)
-
-    case response do
-      {:ok, %{"accessJwt" => access_token, "refreshJwt" => refresh_token}} ->
-        {:ok, new(endpoint, access_token, refresh_token)}
-
-      err ->
-        err
-    end
-  end
-
-  @doc """
-  Request a new `refresh_token` for the given client.
-  """
-  @spec refresh(t()) :: {:ok, t()} | {:error, any()}
-  def refresh(%__MODULE__{endpoint: endpoint, refresh_token: refresh_token} = client) do
-    response =
-      XRPC.unauthed_post(
-        endpoint,
-        "com.atproto.server.refreshSession",
-        XRPC.put_auth([], refresh_token)
-      )
-
-    case response do
-      {:ok, %{"accessJwt" => access_token, "refreshJwt" => refresh_token}} ->
-        %{client | access_token: access_token, refresh_token: refresh_token}
-
-      err ->
-        err
-    end
-  end
+  @callback post(client(), String.t(), request_opts()) :: request_result()
 end

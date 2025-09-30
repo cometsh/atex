@@ -1,33 +1,53 @@
 defmodule Atex.XRPC do
-  alias Atex.XRPC
+  @moduledoc """
+  XRPC client module for AT Protocol RPC calls.
 
-  # TODO: automatic user-agent, and env for changing it
+  This module provides both authenticated and unauthenticated access to AT Protocol
+  XRPC endpoints. The authenticated functions (`get/3`, `post/3`) work with any
+  client that implements the `Atex.XRPC.Client`.
 
-  # TODO: consistent struct shape/protocol for Lexicon schemas so that user can pass in
-  # an object (hopefully validated by its module) without needing to specify the
-  # name & opts separately, and possibly verify the output response against it?
+  ## Example usage
 
-  # TODO: auto refresh, will need to return a client instance in each method.
+      # Login-based client
+      {:ok, client} = Atex.XRPC.LoginClient.login("https://bsky.social", "user.bsky.social", "password")
+      {:ok, response, client} = Atex.XRPC.get(client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"])
+
+      # OAuth-based client (coming next)
+      oauth_client = Atex.XRPC.OAuthClient.new_from_oauth_tokens(endpoint, access_token, refresh_token, dpop_key)
+      {:ok, response, oauth_client} = Atex.XRPC.get(oauth_client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"])
+
+  ## Unauthenticated requests
+
+  Unauthenticated functions (`unauthed_get/3`, `unauthed_post/3`) do not require a client
+  and work directly with endpoints:
+
+      {:ok, response} = Atex.XRPC.unauthed_get("https://bsky.social", "com.atproto.sync.getHead", params: [did: "did:plc:..."])
+  """
 
   @doc """
   Perform a HTTP GET on a XRPC resource. Called a "query" in lexicons.
+
+  Accepts any client that implements `Atex.XRPC.Client` and returns
+  both the response and the (potentially updated) client.
   """
-  @spec get(XRPC.Client.t(), String.t(), keyword()) :: {:ok, Req.Response.t()} | {:error, any()}
-  def get(%XRPC.Client{} = client, name, opts \\ []) do
-    opts = put_auth(opts, client.access_token)
-    Req.get(url(client, name), opts)
+  @spec get(Atex.XRPC.Client.client(), String.t(), keyword()) ::
+          {:ok, Req.Response.t(), Atex.XRPC.Client.client()}
+          | {:error, any(), Atex.XRPC.Client.client()}
+  def get(client, name, opts \\ []) do
+    client.__struct__.get(client, name, opts)
   end
 
   @doc """
   Perform a HTTP POST on a XRPC resource. Called a "prodecure" in lexicons.
+
+  Accepts any client that implements `Atex.XRPC.Client` and returns
+  both the response and the (potentially updated) client.
   """
-  @spec post(XRPC.Client.t(), String.t(), keyword()) :: {:ok, Req.Response.t()} | {:error, any()}
-  def post(%XRPC.Client{} = client, name, opts \\ []) do
-    # TODO: look through available HTTP clients and see if they have a
-    # consistent way of providing JSON bodies with auto content-type. If not,
-    # create one for adapters.
-    opts = put_auth(opts, client.access_token)
-    Req.post(url(client, name), opts)
+  @spec post(Atex.XRPC.Client.client(), String.t(), keyword()) ::
+          {:ok, Req.Response.t(), Atex.XRPC.Client.client()}
+          | {:error, any(), Atex.XRPC.Client.client()}
+  def post(client, name, opts \\ []) do
+    client.__struct__.post(client, name, opts)
   end
 
   @doc """
@@ -49,21 +69,14 @@ defmodule Atex.XRPC do
   end
 
   # TODO: use URI module for joining instead?
-  @spec url(XRPC.Client.t() | String.t(), String.t()) :: String.t()
-  defp url(%XRPC.Client{endpoint: endpoint}, name), do: url(endpoint, name)
-  defp url(endpoint, name) when is_binary(endpoint), do: "#{endpoint}/xrpc/#{name}"
-
   @doc """
-  Put an `authorization` header into a keyword list of options to pass to a HTTP client.
-  """
-  @spec put_auth(keyword(), String.t()) :: keyword()
-  def put_auth(opts, token),
-    do: put_headers(opts, authorization: "Bearer #{token}")
+  Create an XRPC url based on an endpoint and a resource name.
 
-  @spec put_headers(keyword(), keyword()) :: keyword()
-  defp put_headers(opts, headers) do
-    opts
-    |> Keyword.put_new(:headers, [])
-    |> Keyword.update(:headers, [], &Keyword.merge(&1, headers))
-  end
+  ## Example
+
+      iex> Atex.XRPC.url("https://bsky.app", "app.bsky.actor.getProfile")
+      "https://bsky.app/xrpc/app.bsky.actor.getProfile"
+  """
+  @spec url(String.t(), String.t()) :: String.t()
+  def url(endpoint, resource) when is_binary(endpoint), do: "#{endpoint}/xrpc/#{resource}"
 end

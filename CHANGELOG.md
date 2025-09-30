@@ -13,12 +13,15 @@ and this project adheres to
 - Remove `Atex.HTTP` and associated modules as the abstraction caused a bit too
   much complexities for how early atex is. It may come back in the future as
   something more fleshed out once we're more stable.
+- Rename `Atex.XRPC.Client` to `Atex.XRPC.LoginClient`
 
 ### Features
 
 - Add `Atex.OAuth` module with utilites for handling some OAuth functionality.
 - Add `Atex.OAuth.Plug` module (if Plug is loaded) which provides a basic but
   complete OAuth flow, including storing the tokens in `Plug.Session`.
+- Add `Atex.XRPC.Client` behaviour for implementing custom client variants.
+- `Atex.XRPC` now delegates get/post options to the provided client struct.
 
 ## [0.4.0] - 2025-08-27
 
