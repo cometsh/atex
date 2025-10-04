@@ -68,7 +68,6 @@ defmodule Atex.XRPC do
     Req.post(url(endpoint, name), opts)
   end
 
-  # TODO: use URI module for joining instead?
   @doc """
   Create an XRPC url based on an endpoint and a resource name.
 

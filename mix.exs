@@ -36,7 +36,7 @@ defmodule Atex.MixProject do
       {:ex_cldr, "~> 2.42"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
-      {:plug, "~> 1.18", optional: true},
+      {:plug, "~> 1.18"},
       {:jose, git: "https://github.com/potatosalad/erlang-jose.git", ref: "main"},
       {:bandit, "~> 1.0", only: [:dev, :test]}
     ]

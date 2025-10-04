@@ -58,8 +58,6 @@ defmodule Atex.OAuth do
     {_, jwk} = key |> JOSE.JWK.to_public_map()
     jwk = Map.merge(jwk, %{use: "sig", kid: key.fields["kid"]})
 
-    # TODO: read more about client-metadata and what specific fields mean to see that we're doing what we actually want to be doing
-
     %{
       client_id: Config.client_id(),
       redirect_uris: [Config.redirect_uri() | Config.extra_redirect_uris()],
@@ -142,7 +140,6 @@ defmodule Atex.OAuth do
     code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
     key = get_key()
 
-    # TODO: let keys be optional so no client assertion? is this what results in a confidential client??
     client_assertion =
       create_client_assertion(key, Config.client_id(), authz_metadata.issuer)
 
@@ -224,7 +221,46 @@ defmodule Atex.OAuth do
       }
 
     Req.new(method: :post, url: authz_metadata.token_endpoint, form: body)
-    |> send_dpop_request(dpop_key)
+    |> send_oauth_dpop_request(dpop_key)
+    |> case do
+      {:ok,
+       %{
+         "access_token" => access_token,
+         "refresh_token" => refresh_token,
+         "expires_in" => expires_in,
+         "sub" => did
+       }, nonce} ->
+        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
+
+        {:ok,
+         %{
+           access_token: access_token,
+           refresh_token: refresh_token,
+           did: did,
+           expires_at: expires_at
+         }, nonce}
+
+      err ->
+        err
+    end
+  end
+
+  def refresh_token(refresh_token, dpop_key, issuer, token_endpoint) do
+    key = get_key()
+
+    client_assertion =
+      create_client_assertion(key, Config.client_id(), issuer)
+
+    body = %{
+      grant_type: "refresh_token",
+      refresh_token: refresh_token,
+      client_id: Config.client_id(),
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: client_assertion
+    }
+
+    Req.new(method: :post, url: token_endpoint, form: body)
+    |> send_oauth_dpop_request(dpop_key)
     |> case do
       {:ok,
        %{
@@ -331,27 +367,27 @@ defmodule Atex.OAuth do
     end
   end
 
-  @spec send_dpop_request(Req.Request.t(), JOSE.JWK.t(), String.t() | nil) ::
-          {:ok, map(), String.t()} | {:error, any()}
-  defp send_dpop_request(request, dpop_key, nonce \\ nil) do
+  @spec send_oauth_dpop_request(Req.Request.t(), JOSE.JWK.t(), String.t() | nil) ::
+          {:ok, map(), String.t()} | {:error, any(), String.t()}
+  def send_oauth_dpop_request(request, dpop_key, nonce \\ nil) do
     dpop_token = create_dpop_token(dpop_key, request, nonce)
 
     request
     |> Req.Request.put_header("dpop", dpop_token)
     |> Req.request()
     |> case do
-      {:ok, req} ->
+      {:ok, resp} ->
         dpop_nonce =
-          case req.headers["dpop-nonce"] do
+          case resp.headers["dpop-nonce"] do
             [new_nonce | _] -> new_nonce
             _ -> nonce
           end
 
         cond do
-          req.status == 200 ->
-            {:ok, req.body, dpop_nonce}
+          resp.status == 200 ->
+            {:ok, resp.body, dpop_nonce}
 
-          req.body["error"] === "use_dpop_nonce" ->
+          resp.body["error"] === "use_dpop_nonce" ->
             dpop_token = create_dpop_token(dpop_key, request, dpop_nonce)
 
             request
@@ -362,17 +398,80 @@ defmodule Atex.OAuth do
                 {:ok, body, dpop_nonce}
 
               {:ok, %{body: %{"error" => error, "error_description" => error_description}}} ->
-                {:error, {:oauth_error, error, error_description}}
+                {:error, {:oauth_error, error, error_description}, dpop_nonce}
 
               {:ok, _} ->
-                {:error, :unexpected_response}
+                {:error, :unexpected_response, dpop_nonce}
 
-              err ->
-                err
+              {:error, err} ->
+                {:error, err, dpop_nonce}
             end
 
           true ->
-            {:error, {:oauth_error, req.body["error"], req.body["error_description"]}}
+            {:error, {:oauth_error, resp.body["error"], resp.body["error_description"]},
+             dpop_nonce}
+        end
+
+      {:error, err} ->
+        {:error, err, nonce}
+    end
+  end
+
+  @spec request_protected_dpop_resource(
+          Req.Request.t(),
+          String.t(),
+          String.t(),
+          JOSE.JWK.t(),
+          String.t() | nil
+        ) :: {:ok, Req.Response.t(), String.t() | nil} | {:error, any()}
+  def request_protected_dpop_resource(request, issuer, access_token, dpop_key, nonce \\ nil) do
+    access_token_hash = :crypto.hash(:sha256, access_token) |> Base.url_encode64(padding: false)
+    # access_token_hash = Base.url_encode64(access_token, padding: false)
+
+    dpop_token =
+      create_dpop_token(dpop_key, request, nonce, %{iss: issuer, ath: access_token_hash})
+
+    request
+    |> Req.Request.put_header("dpop", dpop_token)
+    |> Req.request()
+    |> case do
+      {:ok, resp} ->
+        dpop_nonce =
+          case resp.headers["dpop-nonce"] do
+            [new_nonce | _] -> new_nonce
+            _ -> nonce
+          end
+
+        www_authenticate = Req.Response.get_header(resp, "www-authenticate")
+
+        www_dpop_problem =
+          www_authenticate != [] && String.starts_with?(Enum.at(www_authenticate, 0), "DPoP")
+
+        if resp.status != 401 || !www_dpop_problem do
+          {:ok, resp, dpop_nonce}
+        else
+          dpop_token =
+            create_dpop_token(dpop_key, request, dpop_nonce, %{
+              iss: issuer,
+              ath: access_token_hash
+            })
+
+          request
+          |> Req.Request.put_header("dpop", dpop_token)
+          |> Req.request()
+          |> case do
+            {:ok, resp} ->
+              dpop_nonce =
+                case resp.headers["dpop-nonce"] do
+                  [new_nonce | _] -> new_nonce
+                  _ -> dpop_nonce
+                end
+
+              {:ok, resp, dpop_nonce}
+
+            err ->
+              err
+          end
         end
 
       err ->
