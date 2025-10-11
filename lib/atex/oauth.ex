@@ -512,9 +512,11 @@ defmodule Atex.OAuth do
         jti: jti,
         htm: atom_to_upcase_string(request.method),
         htu: request_url,
-        iat: iat,
-        nonce: nonce
+        iat: iat
       })
+      |> then(fn m ->
+        if nonce, do: Map.put(m, :nonce, nonce), else: m
+      end)
 
     JOSE.JWT.sign(jwk, jws, jwt)
     |> JOSE.JWS.compact()
