@@ -4,8 +4,8 @@ defmodule Atex.Lexicon.Validators.Array do
   @option_keys [:min_length, :max_length]
 
   # Needs type input
-  @spec validate(Peri.schema_def(), term(), list(option())) :: Peri.validation_result()
-  def validate(inner_type, value, options) when is_list(value) do
+  @spec validate(term(), Peri.schema_def(), list(option())) :: Peri.validation_result()
+  def validate(value, inner_type, options) when is_list(value) do
     # TODO: validate inner_type with Peri to make sure it's correct?
 
     options

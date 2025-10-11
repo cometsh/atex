@@ -24,14 +24,36 @@ defmodule Atex.Lexicon do
       |> then(&Recase.Enumerable.atomize_keys/1)
       |> then(&Atex.Lexicon.Schema.lexicon!/1)
 
+    lexicon_id = Atex.NSID.to_atom(lexicon.id)
+
     defs =
       lexicon.defs
       |> Enum.flat_map(fn {def_name, def} -> def_to_schema(lexicon.id, def_name, def) end)
-      |> Enum.map(fn {schema_key, quoted_schema, quoted_type} ->
+      |> Enum.map(fn
+        {schema_key, quoted_schema, quoted_type} -> {schema_key, quoted_schema, quoted_type, nil}
+        x -> x
+      end)
+      |> Enum.map(fn {schema_key, quoted_schema, quoted_type, quoted_struct} ->
         identity_type =
-          if schema_key === :main do
+          if schema_key == :main do
             quote do
               @type t() :: unquote(quoted_type)
+            end
+          end
+
+        struct_def =
+          if schema_key == :main do
+            quoted_struct
+          else
+            nested_module_name =
+              schema_key
+              |> Recase.to_pascal()
+              |> atomise()
+
+            quote do
+              defmodule unquote({:__aliases__, [alias: false], [nested_module_name]}) do
+                unquote(quoted_struct)
+              end
             end
           end
 
@@ -40,18 +62,48 @@ defmodule Atex.Lexicon do
           unquote(identity_type)
 
           defschema unquote(schema_key), unquote(quoted_schema)
+
+          unquote(struct_def)
         end
       end)
 
-    quote do
-      def id, do: unquote(Atex.NSID.to_atom(lexicon.id))
+    foo =
+      quote do
+        def id, do: unquote(lexicon_id)
 
-      unquote_splicing(defs)
+        unquote_splicing(defs)
+      end
+
+    if lexicon.id == "app.bsky.feed.post" do
+      IO.puts("-----")
+      foo |> Macro.expand(__ENV__) |> Macro.to_string() |> IO.puts()
     end
+
+    foo
   end
 
+  # For records and objects:
+  # - [x] `main` is in core module, otherwise nested with its name (should probably be handled above instead of in `def_to_schema`, like expanding typespecs)
+  # - [x] Define all keys in the schema, `@enforce`ing non-nullable/required fields
+  # - [x] `$type` field with the full NSID
+  # - [x] Custom JSON encoder function that omits optional fields that are `nil`, due to different semantics
+  # - [ ] Add `$type` to schema but make it optional - allowing unbranded types through, but mismatching brand will fail.
+  # - [ ] `t()` type should be the struct in it. (add to non-main structs too?)
+
   @spec def_to_schema(nsid :: String.t(), def_name :: String.t(), lexicon_def :: map()) ::
-          list({key :: atom(), quoted_schema :: term(), quoted_type :: term()})
+          list(
+            {
+              key :: atom(),
+              quoted_schema :: term(),
+              quoted_type :: term()
+            }
+            | {
+                key :: atom(),
+                quoted_schema :: term(),
+                quoted_type :: term(),
+                quoted_struct :: term()
+              }
+          )
 
   defp def_to_schema(nsid, def_name, %{type: "record", record: record}) do
     # TODO: record rkey format validator
@@ -70,41 +122,89 @@ defmodule Atex.Lexicon do
     required = Map.get(def, :required, [])
     nullable = Map.get(def, :nullable, [])
 
-    properties
-    |> Enum.map(fn {key, field} ->
-      {quoted_schema, quoted_type} = field_to_schema(field, nsid)
-      is_nullable = key in nullable
-      is_required = key in required
+    {quoted_schemas, quoted_types} =
+      properties
+      |> Enum.map(fn {key, field} ->
+        {quoted_schema, quoted_type} = field_to_schema(field, nsid)
+        string_key = to_string(key)
+        is_nullable = string_key in nullable
+        is_required = string_key in required
 
-      quoted_schema =
-        quoted_schema
-        |> then(
-          &if is_nullable, do: quote(do: {:either, {{:literal, nil}, unquote(&1)}}), else: &1
-        )
-        |> then(&if is_required, do: quote(do: {:required, unquote(&1)}), else: &1)
-        |> then(&{key, &1})
+        quoted_schema =
+          quoted_schema
+          |> then(
+            &if is_nullable, do: quote(do: {:either, {{:literal, nil}, unquote(&1)}}), else: &1
+          )
+          |> then(&if is_required, do: quote(do: {:required, unquote(&1)}), else: &1)
+          |> then(&{key, &1})
 
-      key_type = if is_required, do: :required, else: :optional
+        key_type = if is_required, do: :required, else: :optional
 
-      quoted_type =
-        quoted_type
-        |> then(
-          &if is_nullable do
-            {:|, [], [&1, nil]}
-          else
-            &1
+        quoted_type =
+          quoted_type
+          |> then(
+            &if is_nullable do
+              {:|, [], [&1, nil]}
+            else
+              &1
+            end
+          )
+          |> then(&{{key_type, [], [key]}, &1})
+
+        {quoted_schema, quoted_type}
+      end)
+      |> Enum.reduce({[], []}, fn {quoted_schema, quoted_type}, {schemas, types} ->
+        {[quoted_schema | schemas], [quoted_type | types]}
+      end)
+
+    struct_keys =
+      Enum.map(properties, fn
+        {key, %{default: default}} -> {key, default}
+        {key, _field} -> {key, nil}
+      end) ++ [{:"$type", if(def_name == :main, do: nsid, else: "#{nsid}##{def_name}")}]
+
+    enforced_keys = properties |> Map.keys() |> Enum.filter(&(to_string(&1) in required))
+
+    optional_if_nil_keys =
+      properties
+      |> Map.keys()
+      |> Enum.filter(fn key ->
+        key = to_string(key)
+        # TODO: what if it is nullable but not required?
+        key not in required && key not in nullable
+      end)
+
+    quoted_struct =
+      quote do
+        @enforce_keys unquote(enforced_keys)
+        defstruct unquote(struct_keys)
+
+        defimpl JSON.Encoder do
+          @optional_if_nil_keys unquote(optional_if_nil_keys)
+
+          def encode(value, encoder) do
+            value
+            |> Map.from_struct()
+            |> Enum.reject(fn {k, v} -> k in @optional_if_nil_keys && v == nil end)
+            |> Enum.into(%{})
+            |> Jason.Encoder.encode(encoder)
           end
-        )
-        |> then(&{{key_type, [], [key]}, &1})
+        end
 
-      {quoted_schema, quoted_type}
-    end)
-    |> Enum.reduce({[], []}, fn {quoted_schema, quoted_type}, {schemas, types} ->
-      {[quoted_schema | schemas], [quoted_type | types]}
-    end)
-    |> then(fn {quoted_schemas, quoted_types} ->
-      [{atomise(def_name), {:%{}, [], quoted_schemas}, {:%{}, [], quoted_types}}]
-    end)
+        defimpl Jason.Encoder do
+          @optional_if_nil_keys unquote(optional_if_nil_keys)
+
+          def encode(value, options) do
+            value
+            |> Map.from_struct()
+            |> Enum.reject(fn {k, v} -> k in @optional_if_nil_keys && v == nil end)
+            |> Enum.into(%{})
+            |> Jason.Encode.map(options)
+          end
+        end
+      end
+
+    [{atomise(def_name), {:%{}, [], quoted_schemas}, {:%{}, [], quoted_types}, quoted_struct}]
   end
 
   # TODO: validating errors?
@@ -231,7 +331,7 @@ defmodule Atex.Lexicon do
         :minGraphemes
       ])
       |> Enum.map(fn {k, v} -> {Recase.to_snake(k), v} end)
-      |> then(&{:custom, {Validators.String, :validate, [&1]}})
+      |> Validators.string()
       |> maybe_default(field)
     end
     |> then(
@@ -262,7 +362,7 @@ defmodule Atex.Lexicon do
       field
       |> Map.take([:maximum, :minimum])
       |> Keyword.new()
-      |> then(&{:custom, {Validators.Integer, [&1]}})
+      |> Validators.integer()
       |> maybe_default(field)
     end
     |> then(
@@ -284,6 +384,7 @@ defmodule Atex.Lexicon do
     |> Enum.map(fn {k, v} -> {Recase.to_snake(k), v} end)
     |> then(&Validators.array(inner_schema, &1))
     |> then(&Macro.escape/1)
+    # TODO: we should be able to unquote this now...
     # Can't unquote the inner_schema beforehand as that would risk evaluating `get_schema`s which don't exist yet.
     # There's probably a better way to do this lol.
     |> then(fn {:custom, {:{}, c, [Validators.Array, :validate, [quoted_inner_schema | args]]}} ->
@@ -341,12 +442,12 @@ defmodule Atex.Lexicon do
       |> Atex.NSID.expand_possible_fragment_shorthand(ref)
       |> Atex.NSID.to_atom_with_fragment()
 
-    {quote do
-       unquote(nsid).get_schema(unquote(fragment))
-     end,
-     quote do
-       unquote(nsid).unquote(fragment)()
-     end}
+    {
+      Macro.escape(Validators.lazy_ref(nsid, fragment)),
+      quote do
+        unquote(nsid).unquote(fragment)()
+      end
+    }
   end
 
   defp field_to_schema(%{type: "union", refs: refs}, nsid) do
@@ -362,12 +463,12 @@ defmodule Atex.Lexicon do
           |> Atex.NSID.expand_possible_fragment_shorthand(ref)
           |> Atex.NSID.to_atom_with_fragment()
 
-        {quote do
-           unquote(nsid).get_schema(unquote(fragment))
-         end,
-         quote do
-           unquote(nsid).unquote(fragment)()
-         end}
+        {
+          Macro.escape(Validators.lazy_ref(nsid, fragment)),
+          quote do
+            unquote(nsid).unquote(fragment)()
+          end
+        }
       end)
       |> Enum.reduce({[], []}, fn {quoted_schema, quoted_type}, {schemas, types} ->
         {[quoted_schema | schemas], [quoted_type | types]}

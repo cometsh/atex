@@ -81,6 +81,11 @@ defmodule Atex.Lexicon.Validators do
     }
   end
 
+  @spec lazy_ref(module(), atom()) :: Peri.schema()
+  def lazy_ref(module, schema_name) do
+    {:custom, {module, schema_name, []}}
+  end
+
   @spec boolean_validate(boolean(), String.t(), keyword() | map()) ::
           Peri.validation_result()
   def boolean_validate(success?, error_message, context \\ []) do
