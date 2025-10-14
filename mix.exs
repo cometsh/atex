@@ -54,12 +54,20 @@ defmodule Atex.MixProject do
     [
       extras: [
         LICENSE: [title: "License"],
-        "README.md": [title: "Overview"]
+        "README.md": [title: "Overview"],
+        "CHANGELOG.md": [title: "Changelog"]
       ],
       main: "readme",
       source_url: @github,
       source_ref: "v#{@version}",
-      formatters: ["html"]
+      formatters: ["html"],
+      groups_for_modules: [
+        "Data types": [Atex.AtURI, Atex.DID, Atex.Handle, Atex.NSID, Atex.TID],
+        XRPC: ~r/^Atex\.XRPC/,
+        OAuth: [Atex.Config.OAuth, Atex.OAuth, Atex.OAuth.Plug],
+        Lexicons: ~r/^Atex\.Lexicon/,
+        Identity: ~r/^Atex\.IdentityResolver/
+      ]
     ]
   end
 end
