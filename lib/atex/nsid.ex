@@ -45,4 +45,13 @@ defmodule Atex.NSID do
       possible_fragment
     end
   end
+
+  @spec canonical_name(String.t(), String.t()) :: String.t()
+  def canonical_name(nsid, fragment) do
+    if fragment == "main" do
+      nsid
+    else
+      "#{nsid}##{fragment}"
+    end
+  end
 end

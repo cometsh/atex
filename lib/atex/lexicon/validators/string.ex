@@ -1,21 +1,8 @@
 defmodule Atex.Lexicon.Validators.String do
   alias Atex.Lexicon.Validators
 
-  @type format() ::
-          :at_identifier
-          | :at_uri
-          | :cid
-          | :datetime
-          | :did
-          | :handle
-          | :nsid
-          | :tid
-          | :record_key
-          | :uri
-          | :language
-
   @type option() ::
-          {:format, format()}
+          {:format, String.t()}
           | {:min_length, non_neg_integer()}
           | {:max_length, non_neg_integer()}
           | {:min_graphemes, non_neg_integer()}
@@ -30,25 +17,6 @@ defmodule Atex.Lexicon.Validators.String do
   ]
 
   @record_key_re ~r"^[a-zA-Z0-9.-_:~]$"
-
-  # TODO: probably should go into a different module, one with general lexicon -> validator gen conversions
-  @spec format_to_atom(String.t()) :: format()
-  def format_to_atom(format) do
-    case format do
-      "at-identifier" -> :at_identifier
-      "at-uri" -> :at_uri
-      "cid" -> :cid
-      "datetime" -> :datetime
-      "did" -> :did
-      "handle" -> :handle
-      "nsid" -> :nsid
-      "tid" -> :tid
-      "record-key" -> :record_key
-      "uri" -> :uri
-      "language" -> :language
-      _ -> raise "Unknown lexicon string format `#{format}`"
-    end
-  end
 
   @spec validate(term(), list(option())) :: Peri.validation_result()
   def validate(value, options) when is_binary(value) do
@@ -74,17 +42,17 @@ defmodule Atex.Lexicon.Validators.String do
 
   defp validate_option(_value, {option, nil}) when option in @option_keys, do: :ok
 
-  defp validate_option(value, {:format, :at_identifier}),
+  defp validate_option(value, {:format, "at-identifier"}),
     do:
       Validators.boolean_validate(
         Atex.DID.match?(value) or Atex.Handle.match?(value),
         "should be a valid DID or handle"
       )
 
-  defp validate_option(value, {:format, :at_uri}),
+  defp validate_option(value, {:format, "at-uri"}),
     do: Validators.boolean_validate(Atex.AtURI.match?(value), "should be a valid at:// URI")
 
-  defp validate_option(value, {:format, :cid}) do
+  defp validate_option(value, {:format, "cid"}) do
     # TODO: is there a regex provided by the lexicon docs/somewhere?
     try do
       Multiformats.CID.decode(value)
@@ -93,7 +61,7 @@ defmodule Atex.Lexicon.Validators.String do
     end
   end
 
-  defp validate_option(value, {:format, :datetime}) do
+  defp validate_option(value, {:format, "datetime"}) do
     # NaiveDateTime is used over DateTime because the result isn't actually
     # being used, so we don't need to include a calendar library just for this.
     case NaiveDateTime.from_iso8601(value) do
@@ -102,33 +70,33 @@ defmodule Atex.Lexicon.Validators.String do
     end
   end
 
-  defp validate_option(value, {:format, :did}),
+  defp validate_option(value, {:format, "did"}),
     do: Validators.boolean_validate(Atex.DID.match?(value), "should be a valid DID")
 
-  defp validate_option(value, {:format, :handle}),
+  defp validate_option(value, {:format, "handle"}),
     do: Validators.boolean_validate(Atex.Handle.match?(value), "should be a valid handle")
 
-  defp validate_option(value, {:format, :nsid}),
+  defp validate_option(value, {:format, "nsid"}),
     do: Validators.boolean_validate(Atex.NSID.match?(value), "should be a valid NSID")
 
-  defp validate_option(value, {:format, :tid}),
+  defp validate_option(value, {:format, "tid"}),
     do: Validators.boolean_validate(Atex.TID.match?(value), "should be a valid TID")
 
-  defp validate_option(value, {:format, :record_key}),
+  defp validate_option(value, {:format, "record-key"}),
     do:
       Validators.boolean_validate(
         Regex.match?(@record_key_re, value),
         "should be a valid record key"
       )
 
-  defp validate_option(value, {:format, :uri}) do
+  defp validate_option(value, {:format, "uri"}) do
     case URI.new(value) do
       {:ok, _} -> :ok
       {:error, _} -> {:error, "should be a valid URI", []}
     end
   end
 
-  defp validate_option(value, {:format, :language}) do
+  defp validate_option(value, {:format, "language"}) do
     case Cldr.LanguageTag.parse(value) do
       {:ok, _} -> :ok
       {:error, _} -> {:error, "should be a valid BCP 47 language tag", []}

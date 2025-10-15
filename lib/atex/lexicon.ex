@@ -67,27 +67,13 @@ defmodule Atex.Lexicon do
         end
       end)
 
-    foo =
-      quote do
-        def id, do: unquote(lexicon_id)
+    quote do
+      def id, do: unquote(lexicon_id)
 
-        unquote_splicing(defs)
-      end
-
-    if lexicon.id == "app.bsky.feed.post" do
-      IO.puts("-----")
-      foo |> Macro.expand(__ENV__) |> Macro.to_string() |> IO.puts()
+      unquote_splicing(defs)
     end
-
-    foo
   end
 
-  # For records and objects:
-  # - [x] `main` is in core module, otherwise nested with its name (should probably be handled above instead of in `def_to_schema`, like expanding typespecs)
-  # - [x] Define all keys in the schema, `@enforce`ing non-nullable/required fields
-  # - [x] `$type` field with the full NSID
-  # - [x] Custom JSON encoder function that omits optional fields that are `nil`, due to different semantics
-  # - [ ] Add `$type` to schema but make it optional - allowing unbranded types through, but mismatching brand will fail.
   # - [ ] `t()` type should be the struct in it. (add to non-main structs too?)
 
   @spec def_to_schema(nsid :: String.t(), def_name :: String.t(), lexicon_def :: map()) ::
@@ -107,10 +93,19 @@ defmodule Atex.Lexicon do
 
   defp def_to_schema(nsid, def_name, %{type: "record", record: record}) do
     # TODO: record rkey format validator
+    type_name = Atex.NSID.canonical_name(nsid, to_string(def_name))
+
+    record =
+      put_in(record, [:properties, :"$type"], %{
+        type: "string",
+        const: type_name,
+        default: type_name
+      })
+
     def_to_schema(nsid, def_name, record)
   end
 
-  # TODO: need to spit out an extra 'branded' type with `$type` field, for use in union refs.
+  # TODO: add struct to types
   defp def_to_schema(
          nsid,
          def_name,
@@ -158,12 +153,16 @@ defmodule Atex.Lexicon do
       end)
 
     struct_keys =
-      Enum.map(properties, fn
+      properties
+      |> Enum.filter(fn {key, _} -> key !== :"$type" end)
+      |> Enum.map(fn
         {key, %{default: default}} -> {key, default}
         {key, _field} -> {key, nil}
-      end) ++ [{:"$type", if(def_name == :main, do: nsid, else: "#{nsid}##{def_name}")}]
+      end)
+      |> then(&(&1 ++ [{:"$type", if(def_name == :main, do: nsid, else: "#{nsid}##{def_name}")}]))
 
-    enforced_keys = properties |> Map.keys() |> Enum.filter(&(to_string(&1) in required))
+    enforced_keys =
+      properties |> Map.keys() |> Enum.filter(&(to_string(&1) in required && &1 != :"$type"))
 
     optional_if_nil_keys =
       properties
@@ -171,7 +170,7 @@ defmodule Atex.Lexicon do
       |> Enum.filter(fn key ->
         key = to_string(key)
         # TODO: what if it is nullable but not required?
-        key not in required && key not in nullable
+        key not in required && key not in nullable && key != "$type"
       end)
 
     quoted_struct =
@@ -227,7 +226,34 @@ defmodule Atex.Lexicon do
         schema
       end
 
-    [params, output]
+    # Root struct containing `params`
+    main =
+      if params do
+        {
+          :main,
+          nil,
+          quote do
+            %__MODULE__{params: params()}
+          end,
+          quote do
+            @enforce_keys [:params]
+            defstruct params: nil
+          end
+        }
+      else
+        {
+          :main,
+          nil,
+          quote do
+            %__MODULE__{}
+          end,
+          quote do
+            defstruct []
+          end
+        }
+      end
+
+    [main, params, output]
     |> Enum.reject(&is_nil/1)
   end
 
@@ -257,7 +283,56 @@ defmodule Atex.Lexicon do
         schema
       end
 
-    [params, output, input]
+    # Root struct containing `input`, `raw_input`, and `params`
+    main =
+      {
+        :main,
+        nil,
+        cond do
+          params && input ->
+            quote do
+              %__MODULE__{input: input(), params: params()}
+            end
+
+          input ->
+            quote do
+              %__MODULE__{input: input()}
+            end
+
+          params ->
+            quote do
+              %__MODULE__{raw_input: any(), params: params()}
+            end
+
+          true ->
+            quote do
+              %__MODULE__{raw_input: any()}
+            end
+        end,
+        cond do
+          params && input ->
+            quote do
+              defstruct input: nil, params: nil
+            end
+
+          input ->
+            quote do
+              defstruct input: nil
+            end
+
+          params ->
+            quote do
+              defstruct raw_input: nil, params: nil
+            end
+
+          true ->
+            quote do
+              defstruct raw_input: nil
+            end
+        end
+      }
+
+    [main, params, output, input]
     |> Enum.reject(&is_nil/1)
   end
 
