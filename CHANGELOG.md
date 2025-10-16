@@ -16,6 +16,9 @@ and this project adheres to
 ### Added
 
 - `deflexicon` now emits structs for records, objects, queries, and procedures.
+- `Atex.XRPC.get/3` and `Atex.XRPC.post/3` now support having a lexicon struct
+  as the second argument instead of the method's name, making it easier to have
+  properly checked API calls.
 
 ## [0.5.0] - 2025-10-11
 
