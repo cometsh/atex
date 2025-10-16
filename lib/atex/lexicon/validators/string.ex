@@ -56,6 +56,7 @@ defmodule Atex.Lexicon.Validators.String do
     # TODO: is there a regex provided by the lexicon docs/somewhere?
     try do
       Multiformats.CID.decode(value)
+      :ok
     rescue
       _ -> {:error, "should be a valid CID", []}
     end

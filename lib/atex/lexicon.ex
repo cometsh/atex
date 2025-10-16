@@ -1,10 +1,4 @@
 defmodule Atex.Lexicon do
-  @moduledoc """
-  Provide `deflexicon` macro for defining a module with types and schemas from an entire lexicon definition.
-
-  Should it also define structs, with functions to convert from input case to snake case?
-  """
-
   alias Atex.Lexicon.Validators
 
   defmacro __using__(_opts) do
@@ -15,6 +9,73 @@ defmodule Atex.Lexicon do
     end
   end
 
+  @doc """
+  Defines a lexicon module from a JSON lexicon definition.
+
+  The `deflexicon` macro processes the provided lexicon map (typically loaded
+  from a JSON file) and generates:
+
+  - **Typespecs** for each definition, exposing a `t/0` type for the main
+    definition and named types for any additional definitions.
+  - **`Peri` schemas** via `defschema/2` for runtime validation of data.
+  - **Structs** for object and record definitions, with `@enforce_keys` ensuring
+    required fields are present.
+  - For **queries** and **procedures**, it creates structs for `params`,
+    `input`, and `output` when those sections exist in the lexicon. It also
+    generates a top‑level struct that aggregates `params` and `input` (when
+    applicable); this struct is used by the XRPC client to locate the
+    appropriate output struct.
+
+  If a procedure doesn't have a schema for a JSON body specified as it's input,
+  the top-level struct will instead have a `raw_input` field, allowing for
+  miscellaneous bodies such as a binary blob.
+
+  The generated structs also implement the `JSON.Encoder` and `Jason.Encoder`
+  protocols (the latter currently present for compatibility), as well as a
+  `from_json` function which is used to validate an input map - e.g. from a JSON
+  HTTP response - and turn it into a struct.
+
+  ## Example
+
+      deflexicon(%{
+        "lexicon" => 1,
+        "id" => "com.ovyerus.testing",
+        "defs" => %{
+          "main" => %{
+            "type" => "record",
+            "key" => "tid",
+            "record" => %{
+              "type" => "object",
+              "required" => ["foobar"],
+              "properties" => %{ "foobar" => %{ "type" => "string" } }
+            }
+          }
+        }
+      })
+
+  The macro expands to following code (truncated for brevity):
+
+      @type main() :: %{required(:foobar) => String.t(), optional(:"$type") => String.t()}
+      @type t() :: %{required(:foobar) => String.t(), optional(:"$type") => String.t()}
+
+      defschema(:main, %{
+        foobar: {:required, {:custom, {Atex.Lexicon.Validators.String, :validate, [[]]}}},
+        "$type": {{:literal, "com.ovyerus.testing"}, {:default, "com.ovyerus.testing"}}
+      })
+
+      @enforce_keys [:foobar]
+      defstruct foobar: nil, "$type": "com.ovyerus.testing"
+
+      def from_json(json) do
+        case apply(Com.Ovyerus.Testing, :main, [json]) do
+          {:ok, map} -> {:ok, struct(__MODULE__, map)}
+          err -> err
+        end
+      end
+
+  The generated module can be used directly with `Atex.XRPC` functions, allowing
+  type‑safe construction of requests and automatic decoding of responses.
+  """
   defmacro deflexicon(lexicon) do
     # Better way to get the real map, without having to eval? (custom function to compose one from quoted?)
     lexicon =
@@ -23,8 +84,6 @@ defmodule Atex.Lexicon do
       |> elem(0)
       |> then(&Recase.Enumerable.atomize_keys/1)
       |> then(&Atex.Lexicon.Schema.lexicon!/1)
-
-    lexicon_id = Atex.NSID.to_atom(lexicon.id)
 
     defs =
       lexicon.defs
@@ -58,17 +117,17 @@ defmodule Atex.Lexicon do
           end
 
         quote do
-          @type unquote(schema_key)() :: unquote(quoted_type)
+          @type unquote(Recase.to_snake(schema_key))() :: unquote(quoted_type)
           unquote(identity_type)
 
-          defschema unquote(schema_key), unquote(quoted_schema)
+          defschema unquote(Recase.to_snake(schema_key)), unquote(quoted_schema)
 
           unquote(struct_def)
         end
       end)
 
     quote do
-      def id, do: unquote(lexicon_id)
+      def id, do: unquote(lexicon.id)
 
       unquote_splicing(defs)
     end
@@ -173,10 +232,19 @@ defmodule Atex.Lexicon do
         key not in required && key not in nullable && key != "$type"
       end)
 
+    schema_module = Atex.NSID.to_atom(nsid)
+
     quoted_struct =
       quote do
         @enforce_keys unquote(enforced_keys)
         defstruct unquote(struct_keys)
+
+        def from_json(json) do
+          case apply(unquote(schema_module), unquote(atomise(def_name)), [json]) do
+            {:ok, map} -> {:ok, struct(__MODULE__, map)}
+            err -> err
+          end
+        end
 
         defimpl JSON.Encoder do
           @optional_if_nil_keys unquote(optional_if_nil_keys)
@@ -517,6 +585,8 @@ defmodule Atex.Lexicon do
       |> Atex.NSID.expand_possible_fragment_shorthand(ref)
       |> Atex.NSID.to_atom_with_fragment()
 
+    fragment = Recase.to_snake(fragment)
+
     {
       Macro.escape(Validators.lazy_ref(nsid, fragment)),
       quote do
@@ -537,6 +607,8 @@ defmodule Atex.Lexicon do
           nsid
           |> Atex.NSID.expand_possible_fragment_shorthand(ref)
           |> Atex.NSID.to_atom_with_fragment()
+
+        fragment = Recase.to_snake(fragment)
 
         {
           Macro.escape(Validators.lazy_ref(nsid, fragment)),

@@ -6,7 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- ## [Unreleased] -->
+## [Unreleased]
+
+### Breking Changes
+
+- `deflexicon` now converts all def names to be in snake_case instead of the
+  casing as written the lexicon.
+
+### Added
+
+- `deflexicon` now emits structs for records, objects, queries, and procedures.
 
 ## [0.5.0] - 2025-10-11
 
