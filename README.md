@@ -12,7 +12,9 @@ Elixir.
 - [x] Macro for converting a Lexicon definition into a runtime-validation schema
   - [x] Codegen to convert a directory of lexicons
 - [x] Oauth stuff
-- [ ] Extended XRPC client with support for validated inputs/outputs
+- [x] Extended XRPC client with support for validated inputs/outputs
+- [ ] Proper MST & CAR handling things
+- [ ] Pre-transpiled libraries for popular lexicons
 
 ## Installation
 
