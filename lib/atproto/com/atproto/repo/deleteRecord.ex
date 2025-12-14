@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Repo.DeleteRecord do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

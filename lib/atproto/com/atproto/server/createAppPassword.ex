@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Server.CreateAppPassword do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Server.RequestEmailConfirmation do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

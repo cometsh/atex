@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Sync.GetHead do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

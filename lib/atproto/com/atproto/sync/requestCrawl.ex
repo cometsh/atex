@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Sync.RequestCrawl do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

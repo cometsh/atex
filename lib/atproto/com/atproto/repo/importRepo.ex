@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Repo.ImportRepo do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Admin.UpdateSubjectStatus do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

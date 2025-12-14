@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Admin.UpdateAccountEmail do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

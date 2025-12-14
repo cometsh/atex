@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Sync.Defs do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

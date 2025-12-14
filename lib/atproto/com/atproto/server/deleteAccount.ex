@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Server.DeleteAccount do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

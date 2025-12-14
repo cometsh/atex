@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Label.SubscribeLabels do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

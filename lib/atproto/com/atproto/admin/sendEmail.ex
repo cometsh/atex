@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Admin.SendEmail do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

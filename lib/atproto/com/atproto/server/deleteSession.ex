@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Server.DeleteSession do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

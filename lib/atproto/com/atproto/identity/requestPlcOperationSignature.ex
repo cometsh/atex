@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Identity.RequestPlcOperationSignature do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

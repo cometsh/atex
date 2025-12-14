@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Server.CreateInviteCode do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

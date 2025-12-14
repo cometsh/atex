@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Server.GetSession do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

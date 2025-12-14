@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Sync.ListBlobs do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

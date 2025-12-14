@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Repo.UploadBlob do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

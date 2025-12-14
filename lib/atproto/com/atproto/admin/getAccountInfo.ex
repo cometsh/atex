@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Admin.GetAccountInfo do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Lexicon.Schema do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{

@@ -1,4 +1,5 @@
 defmodule Com.Atproto.Sync.ListReposByCollection do
+  @moduledoc false
   use Atex.Lexicon
 
   deflexicon(%{
