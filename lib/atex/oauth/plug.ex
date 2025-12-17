@@ -15,10 +15,14 @@ defmodule Atex.OAuth.Plug do
   `secret_key_base` to have been set on your connections. Ideally it should be
   routed to via `Plug.Router.forward/2`, under a route like "/oauth".
 
+  The plug requires a `:callback` option that must be an MFA tuple (Module, Function, Args).
+  This callback is invoked after successful OAuth authentication, receiving the connection
+  with the authenticated session data.
+
   ## Example
 
   Example implementation showing how to set up the OAuth plug with proper
-  session handling:
+  session handling and a callback function:
 
       defmodule ExampleOAuthPlug do
         use Plug.Router
@@ -33,7 +37,15 @@ defmodule Atex.OAuth.Plug do
         plug :match
         plug :dispatch
 
-        forward "/oauth", to: Atex.OAuth.Plug
+        forward "/oauth", to: Atex.OAuth.Plug, init_opts: [callback: {__MODULE__, :oauth_callback, []}]
+
+        def oauth_callback(conn) do
+          # Handle successful OAuth authentication
+          conn
+          |> put_resp_header("Location", "/dashboard")
+          |> resp(307, "")
+          |> send_resp()
+        end
 
         def put_secret_key_base(conn, _) do
           put_in(
@@ -59,6 +71,22 @@ defmodule Atex.OAuth.Plug do
   alias Atex.{IdentityResolver, IdentityResolver.DIDDocument}
 
   @oauth_cookie_opts [path: "/", http_only: true, secure: true, same_site: "lax", max_age: 600]
+
+  def init(opts) do
+    callback = Keyword.get(opts, :callback, nil)
+
+    if !match?({_module, _function, _args}, callback) do
+      raise "expected callback to be a MFA tuple"
+    end
+
+    opts
+  end
+
+  def call(conn, opts) do
+    conn
+    |> put_private(:atex_oauth_opts, opts)
+    |> super(opts)
+  end
 
   plug :match
   plug :dispatch
@@ -112,6 +140,7 @@ defmodule Atex.OAuth.Plug do
 
   get "/callback" do
     conn = conn |> fetch_query_params() |> fetch_session()
+    callback = Keyword.get(conn.private.atex_oauth_opts, :callback)
     cookies = get_cookies(conn)
     stored_state = cookies["state"]
     stored_code_verifier = cookies["code_verifier"]
@@ -138,20 +167,23 @@ defmodule Atex.OAuth.Plug do
            pds <- DIDDocument.get_pds_endpoint(identity.document),
            {:ok, authz_server} <- OAuth.get_authorization_server(pds),
            true <- authz_server == stored_issuer do
-        conn
-        |> delete_resp_cookie("state", @oauth_cookie_opts)
-        |> delete_resp_cookie("code_verifier", @oauth_cookie_opts)
-        |> delete_resp_cookie("issuer", @oauth_cookie_opts)
-        |> put_session(:atex_oauth, %{
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          did: tokens.did,
-          pds: pds,
-          expires_at: tokens.expires_at,
-          dpop_nonce: nonce,
-          dpop_key: dpop_key
-        })
-        |> send_resp(200, "success!! hello #{tokens.did}")
+        conn =
+          conn
+          |> delete_resp_cookie("state", @oauth_cookie_opts)
+          |> delete_resp_cookie("code_verifier", @oauth_cookie_opts)
+          |> delete_resp_cookie("issuer", @oauth_cookie_opts)
+          |> put_session(:atex_oauth, %{
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            did: tokens.did,
+            pds: pds,
+            expires_at: tokens.expires_at,
+            dpop_nonce: nonce,
+            dpop_key: dpop_key
+          })
+
+        {mod, func, args} = callback
+        apply(mod, func, [conn | args])
       else
         false ->
           send_resp(conn, 400, "OAuth issuer does not match your PDS' authorization server")

@@ -1,4 +1,5 @@
 defmodule ExampleOAuthPlug do
+  require Logger
   use Plug.Router
   alias Atex.OAuth
   alias Atex.XRPC
@@ -13,9 +14,30 @@ defmodule ExampleOAuthPlug do
   plug :match
   plug :dispatch
 
-  forward "/oauth", to: Atex.OAuth.Plug
+  forward "/oauth", to: Atex.OAuth.Plug, init_opts: [callback: {__MODULE__, :oauth_callback, []}]
+
+  def oauth_callback(conn) do
+    IO.inspect(conn, label: "callback from oauth!")
+
+    conn
+    |> put_resp_header("Location", "/whoami")
+    |> resp(307, "")
+    |> send_resp()
+  end
 
   get "/whoami" do
+    conn = fetch_session(conn)
+
+    case XRPC.OAuthClient.from_conn(conn) do
+      {:ok, client} ->
+        send_resp(conn, 200, "hello #{client.did}")
+
+      :error ->
+        send_resp(conn, 401, "Unauthorized")
+    end
+  end
+
+  post "/create-post" do
     conn = fetch_session(conn)
 
     with {:ok, client} <- XRPC.OAuthClient.from_conn(conn),
@@ -25,7 +47,8 @@ defmodule ExampleOAuthPlug do
                repo: client.did,
                collection: "app.bsky.feed.post",
                rkey: Atex.TID.now() |> to_string(),
-               record: %App.Bsky.Feed.Post{
+               record: %{
+                 "$type": "app.bsky.feed.post",
                  text: "Hello world from atex!",
                  createdAt: NaiveDateTime.to_iso8601(NaiveDateTime.utc_now())
                }
