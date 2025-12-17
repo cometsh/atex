@@ -6,7 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- ## [Unreleased] -->
+## [Unreleased]
+
+### Added
+
+- `Atex.OAuth.Plug` now requires a `:callback` option that is a MFA tuple
+  (Module, Function, Args), denoting a callback function to be invoked by after
+  a successful OAuth login. See [the OAuth example](./examples/oauth.ex) for a
+  simple usage of this.
+
+### Changed
+
+- `mix atex.lexicons` now adds `@moduledoc false` to generated modules to stop
+  them from automatically cluttering documentation.
 
 ## [0.6.0] - 2025-11-25
 
