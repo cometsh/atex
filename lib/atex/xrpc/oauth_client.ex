@@ -79,8 +79,8 @@ defmodule Atex.XRPC.OAuthClient do
   Ideally should be called at the end of routes where XRPC calls occur, in case
   the client has transparently refreshed, so that the user is always up to date.
   """
-  @spec update_plug(Plug.Conn.t(), t()) :: Plug.Conn.t()
-  def update_plug(%Plug.Conn{} = conn, %__MODULE__{} = client) do
+  @spec update_conn(Plug.Conn.t(), t()) :: Plug.Conn.t()
+  def update_conn(%Plug.Conn{} = conn, %__MODULE__{} = client) do
     Plug.Conn.put_session(conn, :atex_oauth, %{
       access_token: client.access_token,
       refresh_token: client.refresh_token,

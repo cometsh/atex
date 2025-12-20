@@ -57,7 +57,7 @@ defmodule ExampleOAuthPlug do
       IO.inspect(response, label: "output")
 
       conn
-      |> XRPC.OAuthClient.update_plug(client)
+      |> XRPC.OAuthClient.update_conn(client)
       |> send_resp(200, response.uri)
     else
       :error ->

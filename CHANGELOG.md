@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Rename `Atex.XRPC.OAuthClient.update_plug/2` to `update_conn/2`, to match the
+  naming of `from_conn/1`.
+
 ### Added
 
 - `Atex.OAuth.Plug` now requires a `:callback` option that is a MFA tuple
