@@ -19,6 +19,9 @@ and this project adheres to
   (Module, Function, Args), denoting a callback function to be invoked by after
   a successful OAuth login. See [the OAuth example](./examples/oauth.ex) for a
   simple usage of this.
+- `Atex.OAuth.Permission` module for creating
+  [AT Protocol permission](https://atproto.com/specs/permission) strings for
+  OAuth.
 
 ### Changed
 

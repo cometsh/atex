@@ -15,5 +15,6 @@ lexicons
 secrets
 .DS_Store
 CLAUDE.md
+AGENTS.md
 tmp
 temp
