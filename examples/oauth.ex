@@ -1,6 +1,7 @@
 defmodule ExampleOAuthPlug do
   require Logger
   use Plug.Router
+  use Plug.ErrorHandler
   alias Atex.OAuth
   alias Atex.XRPC
 
@@ -79,5 +80,33 @@ defmodule ExampleOAuthPlug do
       # Don't use this in production
       "5ef1078e1617463a3eb3feb9b152e76587a75a6809e0485a125b6bb7ae468f086680771f700d77ff61dfdc8d8ee8a5c7848024a41cf5ad4b6eb3115f74ce6e46"
     )
+  end
+
+  # Error handler for OAuth exceptions
+  @impl Plug.ErrorHandler
+  def handle_errors(conn, %{kind: :error, reason: %Atex.OAuth.Error{} = error, stack: _stack}) do
+    status =
+      case error.reason do
+        reason
+        when reason in [
+               :missing_handle,
+               :invalid_handle,
+               :invalid_callback_request,
+               :issuer_mismatch
+             ] ->
+          400
+
+        _ ->
+          500
+      end
+
+    conn
+    |> put_resp_content_type("text/plain")
+    |> send_resp(status, error.message)
+  end
+
+  # Fallback for other errors
+  def handle_errors(conn, %{kind: _kind, reason: _reason, stack: _stack}) do
+    send_resp(conn, conn.status, "Something went wrong")
   end
 end

@@ -12,6 +12,9 @@ and this project adheres to
 
 - Rename `Atex.XRPC.OAuthClient.update_plug/2` to `update_conn/2`, to match the
   naming of `from_conn/1`.
+- `Atex.OAuth.Plug` now raises `Atex.OAuth.Error` exceptions instead of handling
+  error situations internally. Applications should implement `Plug.ErrorHandler`
+  to catch and gracefully handle them.
 
 ### Added
 
@@ -22,6 +25,9 @@ and this project adheres to
 - `Atex.OAuth.Permission` module for creating
   [AT Protocol permission](https://atproto.com/specs/permission) strings for
   OAuth.
+- `Atex.OAuth.Error` exception module for OAuth flow errors. Contains both a
+  human-readable `message` string and a machine-readable `reason` atom for error
+  handling.
 
 ### Changed
 
