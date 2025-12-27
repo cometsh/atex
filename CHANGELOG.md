@@ -28,6 +28,11 @@ and this project adheres to
 - `Atex.OAuth.Error` exception module for OAuth flow errors. Contains both a
   human-readable `message` string and a machine-readable `reason` atom for error
   handling.
+- `Atex.OAuth.Cache` module provides TTL caching for OAuth authorization server
+  metadata with a 1-hour default TTL to reduce load on third-party PDSs.
+- `Atex.OAuth.get_authorization_server/2` and
+  `Atex.OAuth.get_authorization_server_metadata/2` now support an optional
+  `fresh` parameter to bypass the cache when needed.
 
 ### Changed
 

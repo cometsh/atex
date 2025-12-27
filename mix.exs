@@ -35,11 +35,12 @@ defmodule Atex.MixProject do
       {:typedstruct, "~> 0.5"},
       {:ex_cldr, "~> 2.42"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false, warn_if_outdated: true},
+      {:ex_doc, "~> 0.39", only: :dev, runtime: false, warn_if_outdated: true},
       {:plug, "~> 1.18"},
       {:jason, "~> 1.4"},
       {:jose, "~> 1.11"},
-      {:bandit, "~> 1.0", only: [:dev, :test]}
+      {:bandit, "~> 1.0", only: [:dev, :test]},
+      {:con_cache, "~> 1.1"}
     ]
   end
 

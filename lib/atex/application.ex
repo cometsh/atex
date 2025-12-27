@@ -4,7 +4,11 @@ defmodule Atex.Application do
   use Application
 
   def start(_type, _args) do
-    children = [Atex.IdentityResolver.Cache]
+    children = [
+      Atex.IdentityResolver.Cache,
+      Atex.OAuth.Cache
+    ]
+
     Supervisor.start_link(children, strategy: :one_for_one)
   end
 end
