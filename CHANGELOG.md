@@ -10,11 +10,15 @@ and this project adheres to
 
 ### Breaking Changes
 
-- Rename `Atex.XRPC.OAuthClient.update_plug/2` to `update_conn/2`, to match the
-  naming of `from_conn/1`.
 - `Atex.OAuth.Plug` now raises `Atex.OAuth.Error` exceptions instead of handling
   error situations internally. Applications should implement `Plug.ErrorHandler`
   to catch and gracefully handle them.
+- `Atex.OAuth.Plug` now saves only the user's DID in the session instead of the
+  entire OAuth session object. Applications must use `Atex.OAuth.SessionStore`
+  to manage OAuth sessions.
+- `Atex.XRPC.OAuthClient` has been overhauled to use `Atex.OAuth.SessionStore`
+  for retrieving and managing OAuth sessions, making it easier to use with not
+  needing to manually keep a Plug session in sync.
 
 ### Added
 

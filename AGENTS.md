@@ -21,6 +21,7 @@
   TypedStruct for structs
 - **Moduledocs**: All public modules need `@moduledoc`, public functions need
   `@doc` with examples
+  - When writing lists in documentation, use `-` as the list character.
 - **Error Handling**: Return `{:ok, result}` or `{:error, reason}` tuples; use
   pattern matching in case statements
 - **Pattern Matching**: Prefer pattern matching over conditionals; use guards

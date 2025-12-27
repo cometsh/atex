@@ -41,7 +41,8 @@ defmodule Atex.MixProject do
       {:jose, "~> 1.11"},
       {:bandit, "~> 1.0", only: [:dev, :test]},
       {:con_cache, "~> 1.1"},
-      {:mutex, "~> 3.0"}
+      {:mutex, "~> 3.0"},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 
