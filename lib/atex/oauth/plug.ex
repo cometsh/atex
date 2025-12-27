@@ -97,6 +97,7 @@ defmodule Atex.OAuth.Plug do
   alias Atex.{IdentityResolver, IdentityResolver.DIDDocument}
 
   @oauth_cookie_opts [path: "/", http_only: true, secure: true, same_site: "lax", max_age: 600]
+  @session_name :atex_session
 
   def init(opts) do
     callback = Keyword.get(opts, :callback, nil)
@@ -198,23 +199,34 @@ defmodule Atex.OAuth.Plug do
          pds <- DIDDocument.get_pds_endpoint(identity.document),
          {:ok, authz_server} <- OAuth.get_authorization_server(pds),
          true <- authz_server == stored_issuer do
-      conn =
-        conn
-        |> delete_resp_cookie("state", @oauth_cookie_opts)
-        |> delete_resp_cookie("code_verifier", @oauth_cookie_opts)
-        |> delete_resp_cookie("issuer", @oauth_cookie_opts)
-        |> put_session(:atex_oauth, %{
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          did: tokens.did,
-          pds: pds,
-          expires_at: tokens.expires_at,
-          dpop_nonce: nonce,
-          dpop_key: dpop_key
-        })
+      session = %OAuth.Session{
+        iss: authz_server,
+        aud: pds,
+        sub: tokens.did,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: tokens.expires_at,
+        dpop_key: dpop_key,
+        dpop_nonce: nonce
+      }
 
-      {mod, func, args} = callback
-      apply(mod, func, [conn | args])
+      case OAuth.SessionStore.insert(session) do
+        :ok ->
+          conn =
+            conn
+            |> delete_resp_cookie("state", @oauth_cookie_opts)
+            |> delete_resp_cookie("code_verifier", @oauth_cookie_opts)
+            |> delete_resp_cookie("issuer", @oauth_cookie_opts)
+            |> put_session(@session_name, tokens.did)
+
+          {mod, func, args} = callback
+          apply(mod, func, [conn | args])
+
+        {:error, reason} ->
+          raise Atex.OAuth.Error,
+            message: "Failed to store OAuth session, reason: #{reason}",
+            reason: :session_store_failed
+      end
     else
       false ->
         raise Atex.OAuth.Error,
@@ -227,4 +239,6 @@ defmodule Atex.OAuth.Plug do
           reason: :token_validation_failed
     end
   end
+
+  # TODO: logout route
 end

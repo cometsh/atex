@@ -18,6 +18,7 @@ defmodule Atex.OAuth.Error do
   - `:token_validation_failed` - Failed to validate the authorization code or
     token
   - `:issuer_mismatch` - OAuth issuer does not match PDS authorization server
+  - `:session_store_failed` - OAuth succeeded but failed to store the session
   """
 
   defexception [:message, :reason]

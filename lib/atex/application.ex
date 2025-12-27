@@ -6,7 +6,9 @@ defmodule Atex.Application do
   def start(_type, _args) do
     children = [
       Atex.IdentityResolver.Cache,
-      Atex.OAuth.Cache
+      Atex.OAuth.Cache,
+      Atex.OAuth.SessionStore,
+      {Mutex, name: Atex.SessionMutex}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one)

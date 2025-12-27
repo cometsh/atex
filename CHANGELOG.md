@@ -18,6 +18,11 @@ and this project adheres to
 
 ### Added
 
+- `Atex.OAuth.SessionStore` behaviour and `Atex.OAuth.Session` struct for
+  managing OAuth sessions with pluggable storage backends.
+  - `Atex.OAuth.SessionStore.ETS` - in-memory session store implementation.
+  - `Atex.OAuth.SessionStore.DETS` - persistent disk-based session store
+    implementation.
 - `Atex.OAuth.Plug` now requires a `:callback` option that is a MFA tuple
   (Module, Function, Args), denoting a callback function to be invoked by after
   a successful OAuth login. See [the OAuth example](./examples/oauth.ex) for a
