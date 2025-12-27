@@ -38,7 +38,7 @@ defmodule ExampleOAuthPlug do
     end
   end
 
-  post "/create-post" do
+  get "/create-post" do
     conn = fetch_session(conn)
 
     with {:ok, client} <- XRPC.OAuthClient.from_conn(conn),
@@ -51,18 +51,19 @@ defmodule ExampleOAuthPlug do
                record: %{
                  "$type": "app.bsky.feed.post",
                  text: "Hello world from atex!",
-                 createdAt: NaiveDateTime.to_iso8601(NaiveDateTime.utc_now())
+                 createdAt: DateTime.to_iso8601(DateTime.utc_now())
                }
              }
            }) do
       IO.inspect(response, label: "output")
 
-      conn
-      |> XRPC.OAuthClient.update_conn(client)
-      |> send_resp(200, response.uri)
+      send_resp(conn, 200, response.body.uri)
     else
       :error ->
         send_resp(conn, 401, "Unauthorized")
+
+      {:error, :reauth} ->
+        send_resp(conn, 401, "session expired but still in your cookie")
 
       err ->
         IO.inspect(err, label: "xrpc failed")

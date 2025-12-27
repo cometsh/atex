@@ -112,7 +112,7 @@ defmodule Atex.XRPC do
             rkey: Atex.TID.now() |> to_string(),
             record: %{
               text: "Hello World",
-              createdAt: NaiveDateTime.to_iso8601(NaiveDateTime.utc_now())
+              createdAt: DateTime.to_iso8601(DateTime.utc_now())
             }
           }
         )
@@ -126,7 +126,7 @@ defmodule Atex.XRPC do
             rkey: Atex.TID.now() |> to_string(),
             record: %App.Bsky.Feed.Post{
               text: "Hello World!",
-              createdAt: NaiveDateTime.to_iso8601(NaiveDateTime.utc_now())
+              createdAt: DateTime.to_iso8601(DateTime.utc_now())
             }
           }
         })
