@@ -38,6 +38,8 @@ and this project adheres to
 
 - `mix atex.lexicons` now adds `@moduledoc false` to generated modules to stop
   them from automatically cluttering documentation.
+- `Atex.IdentityResolver.Cache.ETS` now uses ConCache instead of ETS directly,
+  with a 1-hour TTL for cached identity information.
 
 ## [0.6.0] - 2025-11-25
 
