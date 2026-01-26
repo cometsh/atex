@@ -1,5 +1,6 @@
 defmodule Atex.IdentityResolver.DID do
   alias Atex.IdentityResolver.DIDDocument
+  alias Atex.Config.IdentityResolver, as: Config
 
   @type resolution_result() ::
           {:ok, DIDDocument.t()}
@@ -14,7 +15,7 @@ defmodule Atex.IdentityResolver.DID do
   @spec resolve_plc(String.t()) :: resolution_result()
   defp resolve_plc("did:plc:" <> _id = did) do
     with {:ok, resp} when resp.status in 200..299 <-
-           Req.get("https://plc.directory/#{did}"),
+           Req.get("#{Config.directory_url()}/#{did}"),
          {:ok, body} <- decode_body(resp.body),
          {:ok, document} <- DIDDocument.from_json(body),
          :ok <- DIDDocument.validate_for_atproto(document, did) do
