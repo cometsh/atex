@@ -69,7 +69,7 @@ defmodule Atex.MixProject do
         XRPC: ~r/^Atex\.XRPC/,
         OAuth: [Atex.Config.OAuth, Atex.OAuth, Atex.OAuth.Plug],
         Lexicons: ~r/^Atex\.Lexicon/,
-        Identity: ~r/^Atex\.IdentityResolver/
+        Identity: [Atex.Config.IdentityResolver, ~r/^Atex\.IdentityResolver/]
       ]
     ]
   end
