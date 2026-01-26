@@ -52,18 +52,38 @@ defmodule Atex.OAuth do
   Get a map cnotaining the client metadata information needed for an
   authorization server to validate this client.
   """
-  @spec create_client_metadata() :: map()
-  def create_client_metadata() do
-    key = Config.get_key()
+  @type create_client_metadata_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:extra_redirect_uris, list(String.t())}
+          | {:scopes, String.t()}
+  @spec create_client_metadata(list(create_client_metadata_option())) :: map()
+  def create_client_metadata(opts \\ []) do
+    opts =
+      Keyword.validate!(opts,
+        key: Config.get_key(),
+        client_id: Config.client_id(),
+        redirect_uri: Config.redirect_uri(),
+        extra_redirect_uris: Config.extra_redirect_uris(),
+        scopes: Config.scopes()
+      )
+
+    key = Keyword.get(opts, :key)
+    client_id = Keyword.get(opts, :client_id)
+    redirect_uri = Keyword.get(opts, :redirect_uri)
+    extra_redirect_uris = Keyword.get(opts, :extra_redirect_uris)
+    scopes = Keyword.get(opts, :scopes)
+
     {_, jwk} = key |> JOSE.JWK.to_public_map()
     jwk = Map.merge(jwk, %{use: "sig", kid: key.fields["kid"]})
 
     %{
-      client_id: Config.client_id(),
-      redirect_uris: [Config.redirect_uri() | Config.extra_redirect_uris()],
+      client_id: client_id,
+      redirect_uris: [redirect_uri | extra_redirect_uris],
       application_type: "web",
       grant_types: ["authorization_code", "refresh_token"],
-      scope: Config.scopes(),
+      scope: scopes,
       response_type: ["code"],
       token_endpoint_auth_method: "private_key_jwt",
       token_endpoint_auth_signing_alg: "ES256",
@@ -125,33 +145,52 @@ defmodule Atex.OAuth do
     - `{:ok, :invalid_par_response}` - Server respondend incorrectly to the request
     - `{:error, reason}` - Error creating authorization URL
   """
+  @type create_authorization_url_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:scopes, String.t()}
   @spec create_authorization_url(
           authorization_metadata(),
           String.t(),
           String.t(),
-          String.t()
+          String.t(),
+          list(create_authorization_url_option())
         ) :: {:ok, String.t()} | {:error, any()}
   def create_authorization_url(
         authz_metadata,
         state,
         code_verifier,
-        login_hint
+        login_hint,
+        opts \\ []
       ) do
+    opts =
+      Keyword.validate!(opts,
+        key: Config.get_key(),
+        client_id: Config.client_id(),
+        redirect_uri: Config.redirect_uri(),
+        scopes: Config.scopes()
+      )
+
+    key = Keyword.get(opts, :key)
+    client_id = Keyword.get(opts, :client_id)
+    redirect_uri = Keyword.get(opts, :redirect_uri)
+    scopes = Keyword.get(opts, :scopes)
+
     code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
-    key = get_key()
 
     client_assertion =
-      create_client_assertion(key, Config.client_id(), authz_metadata.issuer)
+      create_client_assertion(key, client_id, authz_metadata.issuer)
 
     body =
       %{
         response_type: "code",
-        client_id: Config.client_id(),
-        redirect_uri: Config.redirect_uri(),
+        client_id: client_id,
+        redirect_uri: redirect_uri,
         state: state,
         code_challenge_method: "S256",
         code_challenge: code_challenge,
-        scope: Config.scopes(),
+        scope: scopes,
         client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
         client_assertion: client_assertion,
         login_hint: login_hint
@@ -160,7 +199,7 @@ defmodule Atex.OAuth do
     case Req.post(authz_metadata.par_endpoint, form: body) do
       {:ok, %{body: %{"request_uri" => request_uri}}} ->
         query =
-          %{client_id: Config.client_id(), request_uri: request_uri}
+          %{client_id: client_id, request_uri: request_uri}
           |> URI.encode_query()
 
         {:ok, "#{authz_metadata.authorization_endpoint}?#{query}"}
@@ -192,28 +231,45 @@ defmodule Atex.OAuth do
     - `{:ok, tokens, nonce}` - Successfully obtained tokens with returned DPoP nonce
     - `{:error, reason}` - Error exchanging code for tokens
   """
+  @type validate_authorization_code_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:scopes, String.t()}
   @spec validate_authorization_code(
           authorization_metadata(),
           JOSE.JWK.t(),
           String.t(),
-          String.t()
+          String.t(),
+          list(validate_authorization_code_option())
         ) :: {:ok, tokens(), String.t()} | {:error, any()}
   def validate_authorization_code(
         authz_metadata,
         dpop_key,
         code,
-        code_verifier
+        code_verifier,
+        opts \\ []
       ) do
-    key = get_key()
+    opts =
+      Keyword.validate!(opts,
+        key: get_key(),
+        client_id: Config.client_id(),
+        redirect_uri: Config.redirect_uri(),
+        scopes: Config.scopes()
+      )
+
+    key = Keyword.get(opts, :key)
+    client_id = Keyword.get(opts, :client_id)
+    redirect_uri = Keyword.get(opts, :redirect_uri)
 
     client_assertion =
-      create_client_assertion(key, Config.client_id(), authz_metadata.issuer)
+      create_client_assertion(key, client_id, authz_metadata.issuer)
 
     body =
       %{
         grant_type: "authorization_code",
-        client_id: Config.client_id(),
-        redirect_uri: Config.redirect_uri(),
+        client_id: client_id,
+        redirect_uri: redirect_uri,
         code: code,
         code_verifier: code_verifier,
         client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
@@ -245,16 +301,38 @@ defmodule Atex.OAuth do
     end
   end
 
-  def refresh_token(refresh_token, dpop_key, issuer, token_endpoint) do
-    key = get_key()
+  @type refresh_token_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:scopes, String.t()}
+  @spec refresh_token(
+          String.t(),
+          JOSE.JWK.t(),
+          String.t(),
+          String.t(),
+          list(refresh_token_option())
+        ) ::
+          {:ok, tokens(), String.t()} | {:error, any()}
+  def refresh_token(refresh_token, dpop_key, issuer, token_endpoint, opts \\ []) do
+    opts =
+      Keyword.validate!(opts,
+        key: get_key(),
+        client_id: Config.client_id(),
+        redirect_uri: Config.redirect_uri(),
+        scopes: Config.scopes()
+      )
+
+    key = Keyword.get(opts, :key)
+    client_id = Keyword.get(opts, :client_id)
 
     client_assertion =
-      create_client_assertion(key, Config.client_id(), issuer)
+      create_client_assertion(key, client_id, issuer)
 
     body = %{
       grant_type: "refresh_token",
       refresh_token: refresh_token,
-      client_id: Config.client_id(),
+      client_id: client_id,
       client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
       client_assertion: client_assertion
     }
