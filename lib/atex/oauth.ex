@@ -46,18 +46,37 @@ defmodule Atex.OAuth do
           expires_at: NaiveDateTime.t()
         }
 
-  alias Atex.Config.OAuth, as: Config
-
-  @doc """
-  Get a map cnotaining the client metadata information needed for an
-  authorization server to validate this client.
-  """
   @type create_client_metadata_option ::
           {:key, JOSE.JWK.t()}
           | {:client_id, String.t()}
           | {:redirect_uri, String.t()}
           | {:extra_redirect_uris, list(String.t())}
           | {:scopes, String.t()}
+
+  @type create_authorization_url_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:scopes, String.t()}
+
+  @type validate_authorization_code_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:scopes, String.t()}
+
+  @type refresh_token_option ::
+          {:key, JOSE.JWK.t()}
+          | {:client_id, String.t()}
+          | {:redirect_uri, String.t()}
+          | {:scopes, String.t()}
+
+  alias Atex.Config.OAuth, as: Config
+
+  @doc """
+  Get a map containing the client metadata information needed for an
+  authorization server to validate this client.
+  """
   @spec create_client_metadata(list(create_client_metadata_option())) :: map()
   def create_client_metadata(opts \\ []) do
     opts =
@@ -145,11 +164,6 @@ defmodule Atex.OAuth do
     - `{:ok, :invalid_par_response}` - Server respondend incorrectly to the request
     - `{:error, reason}` - Error creating authorization URL
   """
-  @type create_authorization_url_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:scopes, String.t()}
   @spec create_authorization_url(
           authorization_metadata(),
           String.t(),
@@ -231,11 +245,6 @@ defmodule Atex.OAuth do
     - `{:ok, tokens, nonce}` - Successfully obtained tokens with returned DPoP nonce
     - `{:error, reason}` - Error exchanging code for tokens
   """
-  @type validate_authorization_code_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:scopes, String.t()}
   @spec validate_authorization_code(
           authorization_metadata(),
           JOSE.JWK.t(),
@@ -301,11 +310,6 @@ defmodule Atex.OAuth do
     end
   end
 
-  @type refresh_token_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:scopes, String.t()}
   @spec refresh_token(
           String.t(),
           JOSE.JWK.t(),

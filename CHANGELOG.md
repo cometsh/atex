@@ -6,7 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!-- ## [Unreleased] -->
+## [Unreleased]
+
+### Added
+
+- The PLC directory used for identity resolution can now be configured. See
+  `Atex.Config.IdentityResolve` for more information. (Thanks
+  [@hexmani.ac](https://tangled.org/did:plc:5szlrh3xkfxxsuu4mo6oe6h7)!)
+- Add an extra optional `opts` parameter to some `Atex.OAuth` functions, to
+  allow for better integration with other ecosystems. (Thanks
+  [@lekkice.moe](https://tangled.org/did:plc:dgzvruva4jbzqbta335jtvoz)!)
 
 ## [0.7.0] - 2026-01-07
 
