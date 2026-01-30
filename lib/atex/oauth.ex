@@ -80,19 +80,19 @@ defmodule Atex.OAuth do
   @spec create_client_metadata(list(create_client_metadata_option())) :: map()
   def create_client_metadata(opts \\ []) do
     opts =
-      Keyword.validate!(opts,
-        key: Config.get_key(),
-        client_id: Config.client_id(),
-        redirect_uri: Config.redirect_uri(),
-        extra_redirect_uris: Config.extra_redirect_uris(),
-        scopes: Config.scopes()
+      Keyword.validate!(
+        opts,
+        [:key, :client_id, :redirect_uri, :extra_redirect_uris, :scopes]
       )
 
-    key = Keyword.get(opts, :key)
-    client_id = Keyword.get(opts, :client_id)
-    redirect_uri = Keyword.get(opts, :redirect_uri)
-    extra_redirect_uris = Keyword.get(opts, :extra_redirect_uris)
-    scopes = Keyword.get(opts, :scopes)
+    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
+    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
+    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
+
+    extra_redirect_uris =
+      Keyword.get_lazy(opts, :extra_redirect_uris, &Config.extra_redirect_uris/0)
+
+    scopes = Keyword.get_lazy(opts, :scopes, &Config.scopes/0)
 
     {_, jwk} = key |> JOSE.JWK.to_public_map()
     jwk = Map.merge(jwk, %{use: "sig", kid: key.fields["kid"]})
@@ -179,17 +179,15 @@ defmodule Atex.OAuth do
         opts \\ []
       ) do
     opts =
-      Keyword.validate!(opts,
-        key: Config.get_key(),
-        client_id: Config.client_id(),
-        redirect_uri: Config.redirect_uri(),
-        scopes: Config.scopes()
+      Keyword.validate!(
+        opts,
+        [:key, :client_id, :redirect_uri, :scopes]
       )
 
-    key = Keyword.get(opts, :key)
-    client_id = Keyword.get(opts, :client_id)
-    redirect_uri = Keyword.get(opts, :redirect_uri)
-    scopes = Keyword.get(opts, :scopes)
+    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
+    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
+    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
+    scopes = Keyword.get_lazy(opts, :scopes, &Config.scopes/0)
 
     code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
 
@@ -260,16 +258,14 @@ defmodule Atex.OAuth do
         opts \\ []
       ) do
     opts =
-      Keyword.validate!(opts,
-        key: get_key(),
-        client_id: Config.client_id(),
-        redirect_uri: Config.redirect_uri(),
-        scopes: Config.scopes()
+      Keyword.validate!(
+        opts,
+        [:key, :client_id, :redirect_uri, :scopes]
       )
 
-    key = Keyword.get(opts, :key)
-    client_id = Keyword.get(opts, :client_id)
-    redirect_uri = Keyword.get(opts, :redirect_uri)
+    key = Keyword.get_lazy(opts, :key, &get_key/0)
+    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
+    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
 
     client_assertion =
       create_client_assertion(key, client_id, authz_metadata.issuer)
@@ -320,15 +316,13 @@ defmodule Atex.OAuth do
           {:ok, tokens(), String.t()} | {:error, any()}
   def refresh_token(refresh_token, dpop_key, issuer, token_endpoint, opts \\ []) do
     opts =
-      Keyword.validate!(opts,
-        key: get_key(),
-        client_id: Config.client_id(),
-        redirect_uri: Config.redirect_uri(),
-        scopes: Config.scopes()
+      Keyword.validate!(
+        opts,
+        [:key, :client_id, :redirect_uri, :scopes]
       )
 
-    key = Keyword.get(opts, :key)
-    client_id = Keyword.get(opts, :client_id)
+    key = Keyword.get_lazy(opts, :key, &get_key/0)
+    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
 
     client_assertion =
       create_client_assertion(key, client_id, issuer)
