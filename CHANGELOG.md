@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- Included `Com.Atproto.*` lexicon modules have been removed and put into
+  `atex_atproto` instead.
+
 ### Added
 
 - The PLC directory used for identity resolution can now be configured. See
