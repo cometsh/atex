@@ -16,9 +16,13 @@ An Elxir toolkit for the [AT Protocol](https://atproto.com).
   - With integration for generated Lexicon structs!
 - [ ] Repository reading and manipulation (MST & CAR)
 - [ ] Service auth
-- [ ] PLC client
+- [x] PLC client
 
-Looking to use a data subscription service like the Firehose, [Jetstream](https://docs.bsky.app/blog/jetstream), or [Tap](https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md)? Check out [Drinkup](https://tangled.org/comet.sh/drinkup)
+Looking to use a data subscription service like the Firehose, [Jetstream], or [Tap]? Check out [Drinkup].
+
+[Jetstream]: https://docs.bsky.app/blog/jetstream
+[Tap]: https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md
+[Drinkup]: https://tangled.org/comet.sh/drinkup
 
 ## Installation
 
