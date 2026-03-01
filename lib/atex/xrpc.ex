@@ -1,6 +1,6 @@
 defmodule Atex.XRPC do
   @moduledoc """
-  XRPC client module for AT Protocol RPC calls.
+  Client module for AT Protocol XRPC.
 
   This module provides both authenticated and unauthenticated access to AT Protocol
   XRPC endpoints. The authenticated functions (`get/3`, `post/3`) work with any
@@ -60,7 +60,7 @@ defmodule Atex.XRPC do
   end
 
   def get(client, %{__struct__: module} = query, opts) do
-    opts = if Map.get(query, :params), do: Keyword.put(opts, :params, query.params), else: opts
+    opts = put_params(opts, query)
     output_struct = Module.concat(module, Output)
     output_exists = Code.ensure_loaded?(output_struct)
 
@@ -143,16 +143,8 @@ defmodule Atex.XRPC do
   def post(client, %{__struct__: module} = procedure, opts) do
     opts =
       opts
-      |> then(
-        &if Map.get(procedure, :params), do: Keyword.put(&1, :params, procedure.params), else: &1
-      )
-      |> then(
-        &cond do
-          Map.get(procedure, :input) -> Keyword.put(&1, :json, procedure.input)
-          Map.get(procedure, :raw_input) -> Keyword.put(&1, :body, procedure.raw_input)
-          true -> &1
-        end
-      )
+      |> put_params(procedure)
+      |> put_body(procedure)
 
     output_struct = Module.concat(module, Output)
     output_exists = Code.ensure_loaded?(output_struct)
@@ -207,4 +199,15 @@ defmodule Atex.XRPC do
   """
   @spec url(String.t(), String.t()) :: String.t()
   def url(endpoint, resource) when is_binary(endpoint), do: "#{endpoint}/xrpc/#{resource}"
+
+  @spec put_params(keyword(), struct()) :: keyword()
+  defp put_params(keyword, %{params: params}),
+    do: Keyword.put(keyword, :params, Map.from_struct(params))
+
+  defp put_params(keyword, _), do: keyword
+
+  @spec put_body(keyword(), struct()) :: keyword()
+  defp put_body(keyword, %{input: json}), do: Keyword.put(keyword, :json, json)
+  defp put_body(keyword, %{raw_input: body}), do: Keyword.put(keyword, :body, body)
+  defp put_body(keyword, _), do: keyword
 end
