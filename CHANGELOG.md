@@ -8,6 +8,32 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- The `Atex.IdentityResolver` config key has been replaced with a flat config option.
+  Update your config from:
+
+  ```elixir
+    config :atex, Atex.IdentityResolver,
+      directory_url: "https://plc.directory"
+  ```
+
+  to:
+
+  ```elixir
+    config :atex,
+      plc_directory_url: "https://plc.directory"
+  ```
+
+- `Atex.Config.IdentityResolver` has been renamed to `Atex.Config`.
+- `Atex.IdentityResolver.DIDDocument` has been renamed to `Atex.PLC.DIDDocument`.
+
+### Added
+
+- `Atex.PLC` module for interacting with [a did:plc directory API](https://web.plc.directory/).
+
+### Fixed
+
 - Fix a problem where generated `%<LexiconId>.Params` structs could not be
   passed to an XRPC call due to not having the Enumerable protocol implemented.
 

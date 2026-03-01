@@ -1,4 +1,4 @@
-defmodule Atex.IdentityResolver.DIDDocument do
+defmodule Atex.PLC.DIDDocument do
   @moduledoc """
   Struct and schema for describing and validating a [DID document](https://github.com/w3c/did-wg/blob/main/did-explainer.md#did-documents).
   """
@@ -71,7 +71,6 @@ defmodule Atex.IdentityResolver.DIDDocument do
     |> Recase.Enumerable.convert_keys(&Recase.to_snake/1)
     |> schema()
     |> case do
-      # {:ok, params} -> {:ok, struct(__MODULE__, params)}
       {:ok, params} -> {:ok, new(params)}
       e -> e
     end
@@ -79,7 +78,6 @@ defmodule Atex.IdentityResolver.DIDDocument do
 
   @spec validate_for_atproto(t(), String.t()) :: any()
   def validate_for_atproto(%__MODULE__{} = doc, did) do
-    # TODO: make sure this is  ok
     id_matches = doc.id == did
 
     valid_signing_key =

@@ -1,5 +1,6 @@
 defmodule Atex.IdentityResolver do
-  alias Atex.IdentityResolver.{Cache, DID, DIDDocument, Handle, Identity}
+  alias Atex.IdentityResolver.{Cache, DID, Handle, Identity}
+  alias Atex.PLC.DIDDocument
 
   @handle_strategy Application.compile_env(:atex, :handle_resolver_strategy, :dns_first)
   @type options() :: {:skip_cache, boolean()}

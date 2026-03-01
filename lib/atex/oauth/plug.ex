@@ -93,8 +93,7 @@ defmodule Atex.OAuth.Plug do
   require Logger
   use Plug.Router
   require Plug.Router
-  alias Atex.OAuth
-  alias Atex.{IdentityResolver, IdentityResolver.DIDDocument}
+  alias Atex.{IdentityResolver, OAuth, PLC.DIDDocument}
 
   @oauth_cookie_opts [path: "/", http_only: true, secure: true, same_site: "lax", max_age: 600]
   @session_name :atex_session

@@ -9,5 +9,5 @@ config :atex, Atex.OAuth,
     "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgyIpxhuDm0i3mPkrk6UdX4Sd9Jsv6YtAmSTza+A2nArShRANCAAQLF1GLueOBZOVnKWfrcnoDOO9NSRqH2utmfGMz+Rce18MDB7Z6CwFWjEq2UFYNBI4MI5cMI0+m+UYAmj4OZm+m",
   key_id: "awooga"
 
-config :atex, Atex.IdentityResolver,
-  directory_url: "https://plc.directory"
+config :atex,
+  plc_directory_url: "https://plc.directory"
