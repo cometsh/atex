@@ -1,20 +1,24 @@
 # atex
 
-A set of utilities for working with the [AT Protocol](https://atproto.com) in
-Elixir.
+An Elxir toolkit for the [AT Protocol](https://atproto.com).
 
-## Current Roadmap (in no particular order)
+## Feature map
 
-- [x] `at://` parsing and struct
-- [x] TID codecs
+- [ ] ATProto strings
+  - [x] `at://` links
+  - [x] TIDs
+  - [ ] NSIDs
+  - [ ] CIDs
+- [x] Identity resolution with bi-directional validation and caching.
+- [x] Macro and codegen for converting Lexicon definitions to runtime schemas and structs.
+- [x] OAuth client
 - [x] XRPC client
-- [x] DID & handle resolution service with a cache
-- [x] Macro for converting a Lexicon definition into a runtime-validation schema
-  - [x] Codegen to convert a directory of lexicons
-- [x] Oauth stuff
-- [x] Extended XRPC client with support for validated inputs/outputs
-- [ ] Proper MST & CAR handling things
-- [ ] Pre-transpiled libraries for popular lexicons
+  - With integration for generated Lexicon structs!
+- [ ] Repository reading and manipulation (MST & CAR)
+- [ ] Service auth
+- [ ] PLC client
+
+Looking to use a data subscription service like the Firehose, [Jetstream](https://docs.bsky.app/blog/jetstream), or [Tap](https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md)? Check out [Drinkup](https://tangled.org/comet.sh/drinkup)
 
 ## Installation
 
