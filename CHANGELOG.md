@@ -36,6 +36,7 @@ and this project adheres to
 
 - Fix a problem where generated `%<LexiconId>.Params` structs could not be
   passed to an XRPC call due to not having the Enumerable protocol implemented.
+- Add `Atex.Crypto` module for performing AT Protocol-related cryptographic operations.
 
 ## [0.7.1] - 2026-02-06
 
