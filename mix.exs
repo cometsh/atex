@@ -67,9 +67,11 @@ defmodule Atex.MixProject do
       groups_for_modules: [
         "Data types": [Atex.AtURI, Atex.DID, Atex.Handle, Atex.NSID, Atex.TID],
         XRPC: ~r/^Atex\.XRPC/,
-        OAuth: [Atex.Config.OAuth, Atex.OAuth, Atex.OAuth.Plug],
+        PLC: [Atex.PLC, Atex.PLC.DIDDocument],
+        OAuth: [Atex.Config.OAuth, ~r/^Atex\.OAuth/],
+        Identity: [Atex.Config.IdentityResolver, ~r/^Atex\.IdentityResolver/],
         Lexicons: ~r/^Atex\.Lexicon/,
-        Identity: [Atex.Config.IdentityResolver, ~r/^Atex\.IdentityResolver/]
+        "Implementation details": [Atex.Base32Sortable, Atex.Peri]
       ]
     ]
   end
