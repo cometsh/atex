@@ -37,6 +37,8 @@ and this project adheres to
 - Various improvements to `Atex.Did.Document`
   - Add `Atex.DID.Document.Service` and `Atex.DID.Document.VerificationMethod` sub-structs.
   - Add `to_json/1` methods and `JSON.Encoder` protocols for easy conversion to camelCase JSON.
+- `deflexicon` now emits `content_type/0` functions (on `Input` submodules for typed JSON bodies,
+  otherwise on the root module) for procedures.
 
 ### Fixed
 

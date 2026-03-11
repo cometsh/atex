@@ -347,8 +347,26 @@ defmodule Atex.Lexicon do
 
     input =
       if def[:input] && def.input[:schema] do
-        [schema] = def_to_schema(nsid, "input", def.input.schema)
-        schema
+        encoding = def.input[:encoding]
+
+        [{key, quoted_schema, quoted_type, quoted_struct}] =
+          def_to_schema(nsid, "input", def.input.schema)
+
+        quoted_struct =
+          quote do
+            unquote(quoted_struct)
+
+            @spec content_type() :: String.t()
+            def content_type, do: unquote(encoding)
+          end
+
+        {key, quoted_schema, quoted_type, quoted_struct}
+      end
+
+    # Add `content_type/0` to the root module if the lexicon defines a type without a schema.
+    raw_input_encoding =
+      if is_nil(input) && def[:input] do
+        def.input[:encoding]
       end
 
     # Root struct containing `input`, `raw_input`, and `params`
@@ -386,6 +404,22 @@ defmodule Atex.Lexicon do
           input ->
             quote do
               defstruct input: nil
+            end
+
+          params && raw_input_encoding ->
+            quote do
+              defstruct raw_input: nil, params: nil
+
+              @spec content_type() :: String.t()
+              def content_type, do: unquote(raw_input_encoding)
+            end
+
+          raw_input_encoding ->
+            quote do
+              defstruct raw_input: nil
+
+              @spec content_type() :: String.t()
+              def content_type, do: unquote(raw_input_encoding)
             end
 
           params ->
