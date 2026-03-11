@@ -1,0 +1,78 @@
+{
+  "lexicon": 1,
+  "id": "com.example.createPost",
+  "description": "Create a new post in a user's repository.",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Creates a post record and returns its AT-URI and CID.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "validate": {
+            "type": "boolean",
+            "default": true,
+            "description": "When false, skip Lexicon validation of the post body."
+          }
+        }
+      },
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "#postInput"
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri", "cid"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "format": "at-uri"
+            },
+            "cid": {
+              "type": "string",
+              "format": "cid"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidContent",
+          "description": "The post body failed content validation."
+        }
+      ]
+    },
+    "postInput": {
+      "type": "object",
+      "description": "Input body for creating a post.",
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxGraphemes": 300,
+          "maxLength": 3000,
+          "description": "The plain-text content of the post."
+        },
+        "langs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "language"
+          },
+          "maxLength": 3,
+          "description": "BCP-47 language tags describing the content language(s)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Client-supplied creation timestamp. Defaults to server time if omitted."
+        }
+      }
+    }
+  }
+}

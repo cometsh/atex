@@ -114,8 +114,6 @@ defmodule Atex.XRPC.LoginClient do
   @spec handle_failure(t(), Req.Response.t(), Req.Request.t()) ::
           {:ok, Req.Response.t(), t()} | {:error, any()}
   defp handle_failure(client, response, request) do
-    IO.inspect(response, label: "got failure")
-
     if auth_error?(response.body) and client.refresh_token do
       case refresh(client) do
         {:ok, client} ->

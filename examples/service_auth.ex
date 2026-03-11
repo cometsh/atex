@@ -1,6 +1,7 @@
 defmodule ServiceAuthExample do
   require Logger
   use Plug.Router
+  use Atex.XRPC.Router
 
   plug :match
   plug :dispatch
@@ -37,11 +38,21 @@ defmodule ServiceAuthExample do
     |> send_resp(200, @did_doc)
   end
 
-  get "/xrpc/com.ovyerus.example" do
+  query "com.example.test" do
     IO.inspect(conn)
+    conn |> send_resp(200, "test")
+  end
 
-    conn
-    |> send_resp(200, "")
+  # See `./service_auth` for module & lexicon definitions.
+  query Com.Example.GetProfile do
+    IO.inspect(conn.assigns, label: "getProfile")
+    conn |> send_resp(200, "test")
+  end
+
+  # TODO: why did body not validate
+  procedure Com.Example.CreatePost, require_auth: true do
+    IO.inspect(conn.assigns, label: "createPost")
+    conn |> send_resp(200, "test")
   end
 
   match _ do

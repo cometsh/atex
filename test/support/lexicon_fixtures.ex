@@ -169,6 +169,46 @@ defmodule Lexicon.Test.CreateUnion do
   })
 end
 
+# Procedure with a raw (non-JSON) input - encoding only, no schema.
+# NSID "lexicon.test.uploadBlob" -> Lexicon.Test.UploadBlob
+defmodule Lexicon.Test.UploadBlob do
+  @moduledoc false
+  use Atex.Lexicon
+
+  deflexicon(%{
+    "lexicon" => 1,
+    "id" => "lexicon.test.uploadBlob",
+    "defs" => %{
+      "main" => %{
+        "type" => "procedure",
+        "input" => %{
+          "encoding" => "image/jpeg"
+        }
+      }
+    }
+  })
+end
+
+# Procedure with a wildcard raw input encoding.
+# NSID "lexicon.test.uploadAny" -> Lexicon.Test.UploadAny
+defmodule Lexicon.Test.UploadAny do
+  @moduledoc false
+  use Atex.Lexicon
+
+  deflexicon(%{
+    "lexicon" => 1,
+    "id" => "lexicon.test.uploadAny",
+    "defs" => %{
+      "main" => %{
+        "type" => "procedure",
+        "input" => %{
+          "encoding" => "*/*"
+        }
+      }
+    }
+  })
+end
+
 # Query whose output.schema is a `union` of two cross-NSID refs.
 # NSID "lexicon.test.getUnion" -> Lexicon.Test.GetUnion
 defmodule Lexicon.Test.GetUnion do

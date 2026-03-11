@@ -17,7 +17,7 @@ An Elixir toolkit for the [AT Protocol](https://atproto.com).
 - [ ] Repository reading and manipulation (MST & CAR)
 - [x] Service auth
 - [x] PLC client
-- [ ] XRPC server router
+- [x] XRPC server router
 
 Looking to use a data subscription service like the Firehose, [Jetstream], or [Tap]? Check out [Drinkup].
 

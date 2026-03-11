@@ -10,8 +10,8 @@ and this project adheres to
 
 ### Breaking Changes
 
-- The `Atex.IdentityResolver` config key has been replaced with a flat config option.
-  Update your config from:
+- The `Atex.IdentityResolver` config key has been replaced with a flat config
+  option. Update your config from:
 
   ```elixir
     config :atex, Atex.IdentityResolver,
@@ -27,16 +27,25 @@ and this project adheres to
 
 - `Atex.Config.IdentityResolver` has been renamed to `Atex.Config`.
 - `Atex.IdentityResolver.DIDDocument` has been renamed to `Atex.DID.Document`.
-- Replace existing `Atex.DID.Document.new/1` method with the method previously named `from_json/1`.
+- Replace existing `Atex.DID.Document.new/1` method with the method previously
+  named `from_json/1`.
 
 ### Added
 
-- `Atex.Crypto` module for performing AT Protocol-related cryptographic operations.
-- `Atex.PLC` module for interacting with [a did:plc directory API](https://web.plc.directory/).
-- `Atex.ServiceAuth` module for validating [inter-service authentication tokens](https://atproto.com/specs/xrpc#inter-service-authentication-jwt).
+- `Atex.Crypto` module for performing AT Protocol-related cryptographic
+  operations.
+- `Atex.PLC` module for interacting with
+  [a did:plc directory API](https://web.plc.directory/).
+- `Atex.ServiceAuth` module for validating
+  [inter-service authentication tokens](https://atproto.com/specs/xrpc#inter-service-authentication-jwt).
 - Various improvements to `Atex.Did.Document`
-  - Add `Atex.DID.Document.Service` and `Atex.DID.Document.VerificationMethod` sub-structs.
-  - Add `to_json/1` methods and `JSON.Encoder` protocols for easy conversion to camelCase JSON.
+  - Add `Atex.DID.Document.Service` and `Atex.DID.Document.VerificationMethod`
+    sub-structs.
+  - Add `to_json/1` methods and `JSON.Encoder` protocols for easy conversion to
+    camelCase JSON.
+- `Atex.XRPC.Router` module with `query/3` and `procedure/3` macros for easily
+  building XRPC server routes inside a `Plug.Router`, with built-in service auth
+  validation and validation if passed the name of a module using `deflexicon`.
 - `deflexicon` now emits `content_type/0` functions (on `Input` submodules for typed JSON bodies,
   otherwise on the root module) for procedures.
 

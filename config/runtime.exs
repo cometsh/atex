@@ -10,4 +10,5 @@ config :atex, Atex.OAuth,
   key_id: "awooga"
 
 config :atex,
-  plc_directory_url: "https://plc.directory"
+  plc_directory_url: "https://plc.directory",
+  service_did: "did:web:setsuna.prawn-galaxy.ts.net"

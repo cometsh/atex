@@ -57,8 +57,8 @@ defmodule Atex.ServiceAuth do
   def validate_conn(conn, opts \\ []) do
     case get_req_header(conn, "authorization") do
       ["Bearer " <> jwt] -> validate_jwt(jwt, opts)
-      [_] -> :error
-      _ -> :error
+      [_] -> {:error, :no_header}
+      _ -> {:error, :no_header}
     end
   end
 

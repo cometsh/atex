@@ -1,0 +1,39 @@
+{
+  "lexicon": 1,
+  "id": "com.example.uploadBlob",
+  "description": "Upload a binary blob (e.g. an image) and receive a blob reference.",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Accepts a raw binary body and stores it as a blob. The Content-Type header must be set to the MIME type of the uploaded data.",
+      "input": {
+        "encoding": "*/*",
+        "description": "Raw binary content of the blob. Supported MIME types: image/jpeg, image/png, image/gif, image/webp."
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["blob"],
+          "properties": {
+            "blob": {
+              "type": "blob",
+              "accept": ["image/*"],
+              "maxSize": 1000000
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidMimeType",
+          "description": "The Content-Type of the uploaded data is not an accepted image MIME type."
+        },
+        {
+          "name": "BlobTooLarge",
+          "description": "The uploaded blob exceeds the maximum permitted size."
+        }
+      ]
+    }
+  }
+}

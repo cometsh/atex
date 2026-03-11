@@ -109,6 +109,44 @@ defmodule Atex.LexiconTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Tests: raw-input procedure (encoding only, no schema)
+  # ---------------------------------------------------------------------------
+
+  describe "procedure with raw input (encoding only)" do
+    test "does not generate an Input submodule" do
+      refute Code.ensure_loaded?(Lexicon.Test.UploadBlob.Input)
+    end
+
+    test "root module exports content_type/0" do
+      assert function_exported?(Lexicon.Test.UploadBlob, :content_type, 0)
+    end
+
+    test "content_type/0 returns the declared encoding" do
+      assert Lexicon.Test.UploadBlob.content_type() == "image/jpeg"
+    end
+
+    test "root module has raw_input field in struct" do
+      assert Map.has_key?(%Lexicon.Test.UploadBlob{}, :raw_input)
+    end
+  end
+
+  describe "procedure with wildcard raw input encoding" do
+    test "content_type/0 returns */*" do
+      assert Lexicon.Test.UploadAny.content_type() == "*/*"
+    end
+  end
+
+  describe "procedure with JSON input schema" do
+    test "Input submodule exports content_type/0" do
+      assert function_exported?(Lexicon.Test.CreatePost.Input, :content_type, 0)
+    end
+
+    test "Input.content_type/0 returns the declared encoding" do
+      assert Lexicon.Test.CreatePost.Input.content_type() == "application/json"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Tests: union-typed query output (cross-NSID refs)
   # ---------------------------------------------------------------------------
 
