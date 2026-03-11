@@ -136,6 +136,27 @@ defmodule Atex.PLC.DIDDocument do
     end
   end
 
+  @spec get_atproto_signing_key(t()) :: JOSE.JWK.t() | nil
+  def get_atproto_signing_key(%__MODULE__{} = doc) do
+    doc.verification_method
+    |> Enum.find(fn
+      %{id: id} -> String.ends_with?(id, "#atproto")
+    end)
+    |> case do
+      nil ->
+        nil
+
+      %{public_key_multibase: multibase} ->
+        {:ok, jwk} = Atex.Crypto.decode_did_key(multibase)
+        jwk
+
+      # TODO
+      _ ->
+        raise ArgumentError, message: "Legacy verification method keys are not yet supported"
+        # %{public_key_jwk: jwk} -> nil
+    end
+  end
+
   defp valid_pds_endpoint?(endpoint) do
     case URI.new(endpoint) do
       {:ok, uri} ->

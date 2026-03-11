@@ -201,6 +201,14 @@ defmodule Atex.Crypto do
     _ -> {:error, :sign_failed}
   end
 
+  def generate_p256() do
+    JOSE.JWK.generate_key({:ec, "P-256"})
+  end
+
+  def generate_k256() do
+    JOSE.JWK.generate_key({:ec, "secp256k1"})
+  end
+
   # Private helpers
 
   @spec strip_did_key_prefix(String.t()) :: String.t()

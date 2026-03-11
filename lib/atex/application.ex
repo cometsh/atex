@@ -8,6 +8,7 @@ defmodule Atex.Application do
       Atex.IdentityResolver.Cache,
       Atex.OAuth.Cache,
       Atex.OAuth.SessionStore,
+      Atex.ServiceAuth.JTICache,
       {Mutex, name: Atex.SessionMutex}
     ]
 

@@ -31,6 +31,7 @@ and this project adheres to
 ### Added
 
 - `Atex.PLC` module for interacting with [a did:plc directory API](https://web.plc.directory/).
+- `Atex.ServiceAuth` module for validating [inter-service authentication tokens](https://atproto.com/specs/xrpc#inter-service-authentication-jwt).
 
 ### Fixed
 

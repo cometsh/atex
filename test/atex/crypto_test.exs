@@ -12,6 +12,12 @@ defmodule Atex.CryptoTest do
   # secp256k1 compressed public key as multikey
   @k256_multikey "zQ3shqwJEJyMBsBXCWyCBpUBMqxcon9oHB7mCvx4sSpMdLJwc"
 
+  # Spec example legacy K-256 key (uncompressed, no multicodec) from
+  # https://atproto.com/specs/did#legacy-representation
+  @legacy_k256_multibase "zQYEBzXeuTM9UR3rfvNag6L3RNAs5pQZyYPsomTsgQhsxLdEgCrPTLgFna8yqCnxPpNT7DBk6Ym3dgPKNu86vt9GR"
+  # The same key in the current Multikey (compressed) format
+  @multikey_k256_same "zQ3shXjHeiBuRCKmM36cuYnm7YEMzhGnCmCyW92sRJ9pribSF"
+
   # ---------------------------------------------------------------------------
   # decode_did_key/1
   # ---------------------------------------------------------------------------
@@ -135,6 +141,73 @@ defmodule Atex.CryptoTest do
       {_, orig_map} = JOSE.JWK.to_map(jwk)
       {_, decoded_map} = JOSE.JWK.to_map(jwk2)
       assert orig_map == decoded_map
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # decode_legacy_multibase/2
+  # ---------------------------------------------------------------------------
+
+  describe "decode_legacy_multibase/2" do
+    test "decodes a legacy K-256 uncompressed multibase into a JOSE JWK" do
+      assert {:ok, jwk} =
+               Crypto.decode_legacy_multibase(
+                 "EcdsaSecp256k1VerificationKey2019",
+                 @legacy_k256_multibase
+               )
+
+      assert %JOSE.JWK{} = jwk
+      {_, map} = JOSE.JWK.to_map(jwk)
+      assert map["kty"] == "EC"
+      assert map["crv"] == "secp256k1"
+    end
+
+    test "legacy and Multikey encoding of the same K-256 key produce equal JWK coordinates" do
+      {:ok, jwk_legacy} =
+        Crypto.decode_legacy_multibase(
+          "EcdsaSecp256k1VerificationKey2019",
+          @legacy_k256_multibase
+        )
+
+      {:ok, jwk_current} = Crypto.decode_did_key(@multikey_k256_same)
+
+      {_, legacy_map} = JOSE.JWK.to_map(jwk_legacy)
+      {_, current_map} = JOSE.JWK.to_map(jwk_current)
+      assert legacy_map["x"] == current_map["x"]
+      assert legacy_map["y"] == current_map["y"]
+    end
+
+    test "decodes a generated P-256 key from its uncompressed form" do
+      priv = JOSE.JWK.generate_key({:ec, "P-256"})
+      {_, map} = priv |> JOSE.JWK.to_public() |> JOSE.JWK.to_map()
+      x = Base.url_decode64!(map["x"], padding: false)
+      y = Base.url_decode64!(map["y"], padding: false)
+      legacy_mb = Multiformats.Multibase.encode(<<0x04>> <> x <> y, :base58btc)
+
+      assert {:ok, jwk} =
+               Crypto.decode_legacy_multibase("EcdsaSecp256r1VerificationKey2019", legacy_mb)
+
+      {_, decoded_map} = JOSE.JWK.to_map(jwk)
+      assert decoded_map["x"] == map["x"]
+      assert decoded_map["y"] == map["y"]
+    end
+
+    test "returns {:error, :unsupported_curve} for an unknown type" do
+      assert {:error, :unsupported_curve} =
+               Crypto.decode_legacy_multibase("UnknownType", @legacy_k256_multibase)
+    end
+
+    test "returns {:error, :invalid_multikey} for a bad multibase string" do
+      assert {:error, :invalid_multikey} =
+               Crypto.decode_legacy_multibase("EcdsaSecp256k1VerificationKey2019", "not-base58")
+    end
+
+    test "returns {:error, :invalid_point} when bytes are not a valid uncompressed point" do
+      bad_bytes = <<0x04>> <> :crypto.strong_rand_bytes(10)
+      bad_mb = Multiformats.Multibase.encode(bad_bytes, :base58btc)
+
+      assert {:error, :invalid_point} =
+               Crypto.decode_legacy_multibase("EcdsaSecp256k1VerificationKey2019", bad_mb)
     end
   end
 

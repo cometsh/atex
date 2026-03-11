@@ -1,6 +1,6 @@
 # atex
 
-An Elxir toolkit for the [AT Protocol](https://atproto.com).
+An Elixir toolkit for the [AT Protocol](https://atproto.com).
 
 ## Feature map
 
@@ -15,8 +15,9 @@ An Elxir toolkit for the [AT Protocol](https://atproto.com).
 - [x] XRPC client
   - With integration for generated Lexicon structs!
 - [ ] Repository reading and manipulation (MST & CAR)
-- [ ] Service auth
+- [x] Service auth
 - [x] PLC client
+- [ ] XRPC server router
 
 Looking to use a data subscription service like the Firehose, [Jetstream], or [Tap]? Check out [Drinkup].
 
