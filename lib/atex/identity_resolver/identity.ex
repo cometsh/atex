@@ -12,7 +12,7 @@ defmodule Atex.IdentityResolver.Identity do
   @typedoc """
   The resolved DID document for an identity.
   """
-  @type document() :: Atex.PLC.DIDDocument.t()
+  @type document() :: Atex.DID.Document.t()
 
   typedstruct do
     field :did, did(), enforce: true

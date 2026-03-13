@@ -5,28 +5,29 @@ defmodule ServiceAuthExample do
   plug :match
   plug :dispatch
 
-  @did_doc JSON.encode!(%{
-             "@context" => [
+  @did_doc %Atex.DID.Document{
+             "@context": [
                "https://www.w3.org/ns/did/v1",
                "https://w3id.org/security/multikey/v1"
              ],
-             "id" => "did:web:setsuna.prawn-galaxy.ts.net",
-             "verificationMethod" => [
-               %{
-                 "id" => "did:web:setsuna.prawn-galaxy.ts.net#atproto",
-                 "type" => "Multikey",
-                 "controller" => "did:web:setsuna.prawn-galaxy.ts.net",
-                 "publicKeyMultibase" => "zDnaeRBG9swcjKP6GjjQF7kqxP6JaJaVbvjTjJ1YbXnKWWLna"
+             id: "did:web:setsuna.prawn-galaxy.ts.net",
+             verification_method: [
+               %Atex.DID.Document.VerificationMethod{
+                 id: "did:web:setsuna.prawn-galaxy.ts.net#atproto",
+                 type: "Multikey",
+                 controller: "did:web:setsuna.prawn-galaxy.ts.net",
+                 public_key_jwk: Atex.Config.OAuth.get_key()
                }
              ],
-             "service" => [
-               %{
-                 "id" => "atex_test",
-                 "type" => "AtexTest",
-                 "serviceEndpoint" => "https://setsuna.prawn-galaxy.ts.net"
+             service: [
+               %Atex.DID.Document.Service{
+                 id: "atex_test",
+                 type: "AtexTest",
+                 service_endpoint: "https://setsuna.prawn-galaxy.ts.net"
                }
              ]
-           })
+           }
+           |> JSON.encode!()
 
   get "/.well-known/did.json" do
     Logger.info("got did json")

@@ -98,7 +98,7 @@ defmodule Atex.Crypto do
 
   ## Options
 
-  - `:as_did_key` — when `true`, prepends the `did:key:` URI scheme to the
+  - `:as_did_key` - when `true`, prepends the `did:key:` URI scheme to the
     returned string.  Defaults to `false`.
 
   ## Examples
@@ -201,6 +201,49 @@ defmodule Atex.Crypto do
     _ -> {:error, :sign_failed}
   end
 
+  @doc """
+  Decodes a legacy (pre-`Multikey`) atproto verification method public key into a `JOSE.JWK`.
+
+  Legacy `verificationMethod` entries encode the public key as an **uncompressed** EC point
+  (65 bytes: `0x04 || x || y`) in base58btc multibase, without any multicodec prefix.  The
+  curve is identified by the `type` field of the verification method rather than a multicodec
+  byte.
+
+  Accepted `type` values:
+
+  - `"EcdsaSecp256r1VerificationKey2019"` - P-256 / secp256r1
+  - `"EcdsaSecp256k1VerificationKey2019"` - secp256k1
+
+  ## Examples
+
+      iex> {:ok, jwk} = Atex.Crypto.decode_legacy_multibase(
+      ...>   "EcdsaSecp256k1VerificationKey2019",
+      ...>   "zQYEBzXeuTM9UR3rfvNag6L3RNAs5pQZyYPsomTsgQhsxLdEgCrPTLgFna8yqCnxPpNT7DBk6Ym3dgPKNu86vt9GR"
+      ...> )
+      iex> match?(%JOSE.JWK{}, jwk)
+      true
+
+      iex> Atex.Crypto.decode_legacy_multibase("UnknownType", "zQYEBzXeuTM")
+      {:error, :unsupported_curve}
+  """
+  @spec decode_legacy_multibase(type :: String.t(), multibase :: String.t()) ::
+          {:ok, JOSE.JWK.t()} | {:error, term()}
+  def decode_legacy_multibase(type, multibase) when is_binary(type) and is_binary(multibase) do
+    with {:ok, crv} <- legacy_crv_for_type(type),
+         {:ok, raw} <- multibase_decode(multibase),
+         {:ok, x_bytes, y_bytes} <- split_uncompressed_point(raw) do
+      jwk =
+        JOSE.JWK.from_map(%{
+          "kty" => "EC",
+          "crv" => crv,
+          "x" => Base.url_encode64(x_bytes, padding: false),
+          "y" => Base.url_encode64(y_bytes, padding: false)
+        })
+
+      {:ok, jwk}
+    end
+  end
+
   def generate_p256() do
     JOSE.JWK.generate_key({:ec, "P-256"})
   end
@@ -210,6 +253,18 @@ defmodule Atex.Crypto do
   end
 
   # Private helpers
+
+  @spec legacy_crv_for_type(String.t()) :: {:ok, String.t()} | {:error, :unsupported_curve}
+  defp legacy_crv_for_type("EcdsaSecp256r1VerificationKey2019"), do: {:ok, "P-256"}
+  defp legacy_crv_for_type("EcdsaSecp256k1VerificationKey2019"), do: {:ok, "secp256k1"}
+  defp legacy_crv_for_type(_), do: {:error, :unsupported_curve}
+
+  @spec split_uncompressed_point(binary()) ::
+          {:ok, binary(), binary()} | {:error, :invalid_point}
+  defp split_uncompressed_point(<<0x04, x::binary-size(32), y::binary-size(32)>>),
+    do: {:ok, x, y}
+
+  defp split_uncompressed_point(_), do: {:error, :invalid_point}
 
   @spec strip_did_key_prefix(String.t()) :: String.t()
   defp strip_did_key_prefix("did:key:" <> rest), do: rest

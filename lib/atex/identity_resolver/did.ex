@@ -1,8 +1,8 @@
 defmodule Atex.IdentityResolver.DID do
-  alias Atex.PLC
+  alias Atex.{DID, PLC}
 
   @type resolution_result() ::
-          {:ok, PLC.DIDDocument.t()}
+          {:ok, DID.Document.t()}
           | {:error, :invalid_did_type | :invalid_did | :not_found | map() | atom() | any()}
 
   @spec resolve(String.t()) :: resolution_result()
@@ -14,7 +14,7 @@ defmodule Atex.IdentityResolver.DID do
   @spec resolve_plc(String.t()) :: resolution_result()
   defp resolve_plc("did:plc:" <> _id = did) do
     with {:ok, document} <- PLC.resolve_did(did),
-         :ok <- PLC.DIDDocument.validate_for_atproto(document, did) do
+         :ok <- DID.Document.validate_for_atproto(document, did) do
       {:ok, document}
     end
   end
@@ -24,8 +24,8 @@ defmodule Atex.IdentityResolver.DID do
     with {:ok, resp} when resp.status in 200..299 <-
            Req.get("https://#{domain}/.well-known/did.json"),
          {:ok, body} <- decode_body(resp.body),
-         {:ok, document} <- PLC.DIDDocument.from_json(body),
-         :ok <- PLC.DIDDocument.validate_for_atproto(document, did) do
+         {:ok, document} <- DID.Document.new(body),
+         :ok <- DID.Document.validate_for_atproto(document, did) do
       {:ok, document}
     else
       {:ok, %{status: 404}} -> {:error, :not_found}

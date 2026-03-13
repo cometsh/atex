@@ -123,7 +123,7 @@ defmodule Atex.ServiceAuth do
          # the signing key from their DID document to verify the token
          {:ok, identity} <- Atex.IdentityResolver.resolve(issuing_did),
          user_jwk when not is_nil(user_jwk) <-
-           Atex.PLC.DIDDocument.get_atproto_signing_key(identity.document),
+           Atex.DID.Document.get_atproto_signing_key(identity.document),
          {true, %JOSE.JWT{} = jwt_struct, _jws} <- JOSE.JWT.verify(user_jwk, jwt),
          # Record the nonce atomically after successful verification. insert_new
          # is used under the hood so this returns :seen if the jti was already

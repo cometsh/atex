@@ -25,7 +25,7 @@ defmodule Atex.PLC do
   - `:not_found` - The DID is not registered (HTTP 404).
   - `:tombstoned` - The DID has been permanently deactivated (HTTP 410).
   - `:invalid_document` - The server returned a body that could not be parsed
-    into a `DIDDocument`.
+    into an `Atex.DID.Document`.
   - `{:invalid_operation, message}` - The submitted operation was rejected by
     the server, with an explanatory message (HTTP 400).
   - `:invalid_operation` - The submitted operation was rejected without a
@@ -39,13 +39,13 @@ defmodule Atex.PLC do
   @type create_op_error() ::
           {:error, {:invalid_operation, message :: String.t()} | :invalid_operation} | error()
 
-  alias Atex.PLC.DIDDocument
+  alias Atex.DID
 
   @doc """
   Resolves the DID Document for the given `did:plc` identifier.
 
   Fetches the current DID Document from the directory server and parses it into
-  an `Atex.PLC.DIDDocument` struct.
+  an `Atex.DID.Document` struct.
 
   ## Parameters
 
@@ -55,12 +55,12 @@ defmodule Atex.PLC do
   ## Examples
 
       iex> Atex.PLC.resolve_did("did:plc:ewvi7nxzyoun6zhxrhs64oiz")
-      {:ok, %Atex.PLC.DIDDocument{...}}
+      {:ok, %Atex.DID.Document{...}}
 
       iex> Atex.PLC.resolve_did("did:plc:doesnotexist")
       {:error, :not_found}
   """
-  @spec resolve_did(String.t(), keyword()) :: {:ok, DIDDocument.t()} | error()
+  @spec resolve_did(String.t(), keyword()) :: {:ok, DID.Document.t()} | error()
   def resolve_did(did, opts \\ []) do
     opts
     |> host()
@@ -69,7 +69,7 @@ defmodule Atex.PLC do
     |> handle_response()
     |> case do
       {:ok, body} ->
-        case DIDDocument.from_json(body) do
+        case DID.Document.new(body) do
           {:ok, document} -> {:ok, document}
           {:error, _reason} -> {:error, :invalid_document}
         end

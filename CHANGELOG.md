@@ -26,18 +26,22 @@ and this project adheres to
   ```
 
 - `Atex.Config.IdentityResolver` has been renamed to `Atex.Config`.
-- `Atex.IdentityResolver.DIDDocument` has been renamed to `Atex.PLC.DIDDocument`.
+- `Atex.IdentityResolver.DIDDocument` has been renamed to `Atex.DID.Document`.
+- Replace existing `Atex.DID.Document.new/1` method with the method previously named `from_json/1`.
 
 ### Added
 
+- `Atex.Crypto` module for performing AT Protocol-related cryptographic operations.
 - `Atex.PLC` module for interacting with [a did:plc directory API](https://web.plc.directory/).
 - `Atex.ServiceAuth` module for validating [inter-service authentication tokens](https://atproto.com/specs/xrpc#inter-service-authentication-jwt).
+- Various improvements to `Atex.Did.Document`
+  - Add `Atex.DID.Document.Service` and `Atex.DID.Document.VerificationMethod` sub-structs.
+  - Add `to_json/1` methods and `JSON.Encoder` protocols for easy conversion to camelCase JSON.
 
 ### Fixed
 
 - Fix a problem where generated `%<LexiconId>.Params` structs could not be
   passed to an XRPC call due to not having the Enumerable protocol implemented.
-- Add `Atex.Crypto` module for performing AT Protocol-related cryptographic operations.
 
 ## [0.7.1] - 2026-02-06
 

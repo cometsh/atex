@@ -93,7 +93,7 @@ defmodule Atex.OAuth.Plug do
   require Logger
   use Plug.Router
   require Plug.Router
-  alias Atex.{IdentityResolver, OAuth, PLC.DIDDocument}
+  alias Atex.{DID, IdentityResolver, OAuth}
 
   @oauth_cookie_opts [path: "/", http_only: true, secure: true, same_site: "lax", max_age: 600]
   @session_name :atex_session
@@ -129,7 +129,7 @@ defmodule Atex.OAuth.Plug do
 
     case IdentityResolver.resolve(handle) do
       {:ok, identity} ->
-        pds = DIDDocument.get_pds_endpoint(identity.document)
+        pds = DID.Document.get_pds_endpoint(identity.document)
         {:ok, authz_server} = OAuth.get_authorization_server(pds)
         {:ok, authz_metadata} = OAuth.get_authorization_server_metadata(authz_server)
         state = OAuth.create_nonce()
@@ -195,7 +195,7 @@ defmodule Atex.OAuth.Plug do
            ),
          {:ok, identity} <- IdentityResolver.resolve(tokens.did),
          # Make sure pds' issuer matches the stored one (just in case)
-         pds <- DIDDocument.get_pds_endpoint(identity.document),
+         pds <- DID.Document.get_pds_endpoint(identity.document),
          {:ok, authz_server} <- OAuth.get_authorization_server(pds),
          true <- authz_server == stored_issuer do
       session = %OAuth.Session{

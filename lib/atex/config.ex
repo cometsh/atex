@@ -9,7 +9,7 @@ defmodule Atex.Config do
       config :atex,
         plc_directory_url: "https://plc.directory"
 
-  - `:plc_directory_url` — Base URL for the did:plc directory server.
+  - `:plc_directory_url` - Base URL for the did:plc directory server.
     Defaults to `"https://plc.directory"`.
   """
 
