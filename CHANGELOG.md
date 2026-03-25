@@ -42,6 +42,8 @@ and this project adheres to
 
 - Fix a problem where generated `%<LexiconId>.Params` structs could not be
   passed to an XRPC call due to not having the Enumerable protocol implemented.
+- Correctly generate `Input`/`Output` submodules with `from_json` methods for
+  queries and procedures that use `ref` or `union` types.
 
 ## [0.7.1] - 2026-02-06
 

@@ -240,7 +240,7 @@ defmodule Atex.Lexicon do
         defstruct unquote(struct_keys)
 
         def from_json(json) do
-          case apply(unquote(schema_module), unquote(atomise(def_name)), [json]) do
+          case apply(unquote(schema_module), unquote(atomise(Recase.to_snake(def_name))), [json]) do
             {:ok, map} -> {:ok, struct(__MODULE__, map)}
             err -> err
           end
@@ -440,6 +440,47 @@ defmodule Atex.Lexicon do
     ]
   end
 
+  defp def_to_schema(nsid, def_name, %{type: "ref", ref: ref}) do
+    target_module =
+      nsid
+      |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+      |> ref_to_module()
+
+    {quoted_schema, quoted_type} = field_to_schema(%{type: "ref", ref: ref}, nsid)
+
+    quoted_struct =
+      quote do
+        def from_json(json), do: unquote(target_module).from_json(json)
+      end
+
+    [{atomise(def_name), quoted_schema, quoted_type, quoted_struct}]
+  end
+
+  defp def_to_schema(nsid, def_name, %{type: "union", refs: refs}) do
+    target_modules =
+      Enum.map(refs, fn ref ->
+        nsid
+        |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+        |> ref_to_module()
+      end)
+
+    {quoted_schema, quoted_type} = field_to_schema(%{type: "union", refs: refs}, nsid)
+
+    quoted_struct =
+      quote do
+        def from_json(json) do
+          Enum.find_value(unquote(target_modules), {:error, :no_matching_type}, fn mod ->
+            case mod.from_json(json) do
+              {:ok, _} = ok -> ok
+              _ -> nil
+            end
+          end)
+        end
+      end
+
+    [{atomise(def_name), quoted_schema, quoted_type, quoted_struct}]
+  end
+
   defp def_to_schema(nsid, def_name, %{type: type} = def)
        when type in [
               "blob",
@@ -449,9 +490,7 @@ defmodule Atex.Lexicon do
               "string",
               "bytes",
               "cid-link",
-              "unknown",
-              "ref",
-              "union"
+              "unknown"
             ] do
     {quoted_schema, quoted_type} = field_to_schema(def, nsid)
     [{atomise(def_name), quoted_schema, quoted_type}]
@@ -657,6 +696,20 @@ defmodule Atex.Lexicon do
 
   defp atomise(x) when is_atom(x), do: x
   defp atomise(x) when is_binary(x), do: String.to_atom(x)
+
+  # Resolves a fully-expanded NSID (possibly with a `#fragment`) to the
+  # Elixir module atom that `deflexicon` generates for it. When the fragment is
+  # `main` (or absent), the module is the root NSID module. Otherwise it is a
+  # PascalCase-named submodule of the root NSID module.
+  defp ref_to_module(expanded_nsid) do
+    {nsid_atom, fragment} = Atex.NSID.to_atom_with_fragment(expanded_nsid)
+
+    if fragment == :main do
+      nsid_atom
+    else
+      Module.concat(nsid_atom, Recase.to_pascal(to_string(fragment)))
+    end
+  end
 
   defp join_with_pipe(list) when is_list(list) do
     [piped] = do_join_with_pipe(list)

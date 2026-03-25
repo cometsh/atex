@@ -10,6 +10,7 @@ defmodule Atex.MixProject do
       app: :atex,
       version: @version,
       elixir: "~> 1.18",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "atex",
@@ -18,6 +19,9 @@ defmodule Atex.MixProject do
       docs: docs()
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   def application do
     [
