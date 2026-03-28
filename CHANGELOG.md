@@ -48,6 +48,7 @@ and this project adheres to
   validation and validation if passed the name of a module using `deflexicon`.
 - `deflexicon` now emits `content_type/0` functions (on `Input` submodules for typed JSON bodies,
   otherwise on the root module) for procedures.
+- `Atex.XRPC.ServiceAuthClient` module for making requests to other atproto services using a service auth token.
 
 ### Fixed
 

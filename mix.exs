@@ -69,12 +69,13 @@ defmodule Atex.MixProject do
       source_ref: "v#{@version}",
       formatters: ["html"],
       groups_for_modules: [
-        "Data types": [Atex.AtURI, Atex.DID, Atex.Handle, Atex.NSID, Atex.TID],
+        "Data types": [Atex.AtURI, ~r/^Atex\.DID/, Atex.Handle, Atex.NSID, Atex.TID],
         XRPC: ~r/^Atex\.XRPC/,
         PLC: [Atex.PLC],
         OAuth: [Atex.Config.OAuth, ~r/^Atex\.OAuth/],
         Identity: [Atex.Config.IdentityResolver, ~r/^Atex\.IdentityResolver/],
         Lexicons: ~r/^Atex\.Lexicon/,
+        "Service Auth": ~r/^Atex\.ServiceAuth/,
         "Implementation details": [Atex.Base32Sortable, Atex.Peri]
       ]
     ]
