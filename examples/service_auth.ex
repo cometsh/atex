@@ -49,7 +49,6 @@ defmodule ServiceAuthExample do
     conn |> send_resp(200, "test")
   end
 
-  # TODO: why did body not validate
   procedure Com.Example.CreatePost, require_auth: true do
     IO.inspect(conn.assigns, label: "createPost")
     conn |> send_resp(200, "test")

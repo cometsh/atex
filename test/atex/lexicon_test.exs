@@ -14,6 +14,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "Input submodule exports from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.CreatePost.Input)
       assert function_exported?(Lexicon.Test.CreatePost.Input, :from_json, 1)
     end
 
@@ -37,6 +38,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "Output submodule exports from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.GetPost.Output)
       assert function_exported?(Lexicon.Test.GetPost.Output, :from_json, 1)
     end
 
@@ -64,6 +66,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "Input submodule exports from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.CreateProfile.Input)
       assert function_exported?(Lexicon.Test.CreateProfile.Input, :from_json, 1)
     end
 
@@ -89,6 +92,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "Input submodule exports from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.CreateUnion.Input)
       assert function_exported?(Lexicon.Test.CreateUnion.Input, :from_json, 1)
     end
 
@@ -118,6 +122,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "root module exports content_type/0" do
+      Code.ensure_loaded!(Lexicon.Test.UploadBlob)
       assert function_exported?(Lexicon.Test.UploadBlob, :content_type, 0)
     end
 
@@ -138,6 +143,7 @@ defmodule Atex.LexiconTest do
 
   describe "procedure with JSON input schema" do
     test "Input submodule exports content_type/0" do
+      Code.ensure_loaded!(Lexicon.Test.CreatePost.Input)
       assert function_exported?(Lexicon.Test.CreatePost.Input, :content_type, 0)
     end
 
@@ -156,6 +162,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "Output submodule exports from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.GetUnion.Output)
       assert function_exported?(Lexicon.Test.GetUnion.Output, :from_json, 1)
     end
 
