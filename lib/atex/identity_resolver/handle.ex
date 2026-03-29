@@ -45,7 +45,7 @@ defmodule Atex.IdentityResolver.Handle do
 
   @spec resolve_via_dns(String.t()) :: {:ok, String.t()} | :error
   defp resolve_via_dns(handle) do
-    with ["did=" <> did] <- query_dns("_atproto.#{handle}", :txt),
+    with ["did=" <> did] <- Atex.Util.query_dns("_atproto.#{handle}", :txt),
          "did:" <> _ <- did do
       {:ok, did}
     else
@@ -59,16 +59,5 @@ defmodule Atex.IdentityResolver.Handle do
       {:ok, %{body: "did:" <> _ = did}} -> {:ok, did}
       _ -> :error
     end
-  end
-
-  @spec query_dns(String.t(), :inet_res.dns_rr_type()) :: list(String.t() | list(String.t()))
-  defp query_dns(domain, type) do
-    domain
-    |> String.to_charlist()
-    |> :inet_res.lookup(:in, type)
-    |> Enum.map(fn
-      [result] -> to_string(result)
-      result -> result
-    end)
   end
 end
