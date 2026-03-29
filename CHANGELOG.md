@@ -12,6 +12,13 @@ and this project adheres to
 
 - `Atex.XRPC.UnauthedClient` module for running unauthenticated XRPC fetches on
   public APIs or PDSes.
+- `Atex.NSID.authority_domain/1` for deriving the `_lexicon.<authority>` DNS
+  name from an NSID.
+- `Atex.Lexicon.Resolver` module for resolving published lexicons by NSID,
+  following the
+  [publication and resolution spec](https://atproto.com/specs/lexicon#lexicon-publication-and-resolution).
+- `mix atex.lexicons.resolve` task for resolving one or more lexicons by NSID
+  and writing to a JSON file.
 
 ## [0.8.0] - 2026-03-29
 

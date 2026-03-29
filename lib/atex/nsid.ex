@@ -8,9 +8,6 @@ defmodule Atex.NSID do
   @spec match?(String.t()) :: boolean()
   def match?(value), do: Regex.match?(@re, value)
 
-  # TODO: methods for fetching the authority and name from a nsid.
-  # maybe stuff for fetching the repo that belongs to an authority
-
   @spec to_atom(String.t()) :: atom()
   def to_atom(nsid, fully_qualify \\ true) do
     nsid
@@ -52,6 +49,42 @@ defmodule Atex.NSID do
       nsid
     else
       "#{nsid}##{fragment}"
+    end
+  end
+
+  @doc """
+  Returns the DNS authority domain for a given NSID, as used for lexicon
+  resolution via DNS TXT records.
+
+  The authority domain is derived by stripping the final name segment from the
+  NSID, reversing the remaining authority parts, and prepending `_lexicon.`.
+
+  Returns `{:error, :invalid_nsid}` if the input is not a valid NSID.
+
+  ## Examples
+
+      iex> Atex.NSID.authority_domain("app.bsky.feed.post")
+      {:ok, "_lexicon.feed.bsky.app"}
+
+      iex> Atex.NSID.authority_domain("edu.university.dept.lab.blogging.getBlogPost")
+      {:ok, "_lexicon.blogging.lab.dept.university.edu"}
+
+      iex> Atex.NSID.authority_domain("invalid")
+      {:error, :invalid_nsid}
+  """
+  @spec authority_domain(String.t()) :: {:ok, String.t()} | {:error, :invalid_nsid}
+  def authority_domain(nsid) do
+    if match?(nsid) do
+      authority =
+        nsid
+        |> String.split(".")
+        |> Enum.drop(-1)
+        |> Enum.reverse()
+        |> Enum.join(".")
+
+      {:ok, "_lexicon.#{authority}"}
+    else
+      {:error, :invalid_nsid}
     end
   end
 end
