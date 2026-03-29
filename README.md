@@ -32,7 +32,7 @@ Get atex from [hex.pm](https://hex.pm) by adding it to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:atex, "~> 0.7"}
+    {:atex, "~> 0.8"}
   ]
 end
 ```
