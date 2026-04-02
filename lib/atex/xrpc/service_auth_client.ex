@@ -8,7 +8,6 @@ defmodule Atex.XRPC.ServiceAuthClient do
   ## Usage
 
       client = Atex.XRPC.ServiceAuthClient.new("<jwt>")
-
       {:ok, response, _} = Atex.XRPC.get(client, "com.example.authenticatedXRPC")
   """
 

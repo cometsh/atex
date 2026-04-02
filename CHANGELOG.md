@@ -6,7 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!--## [Unreleased]-->
+## [Unreleased]
+
+### Added
+
+- `Atex.XRPC.UnauthedClient` module for running unauthenticated XRPC fetches on
+  public APIs or PDSes.
 
 ## [0.8.0] - 2026-03-29
 
@@ -48,9 +53,10 @@ and this project adheres to
 - `Atex.XRPC.Router` module with `query/3` and `procedure/3` macros for easily
   building XRPC server routes inside a `Plug.Router`, with built-in service auth
   validation and validation if passed the name of a module using `deflexicon`.
-- `deflexicon` now emits `content_type/0` functions (on `Input` submodules for typed JSON bodies,
-  otherwise on the root module) for procedures.
-- `Atex.XRPC.ServiceAuthClient` module for making requests to other atproto services using a service auth token.
+- `deflexicon` now emits `content_type/0` functions (on `Input` submodules for
+  typed JSON bodies, otherwise on the root module) for procedures.
+- `Atex.XRPC.ServiceAuthClient` module for making requests to other atproto
+  services using a service auth token.
 
 ### Fixed
 
