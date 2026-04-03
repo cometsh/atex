@@ -26,8 +26,5 @@
       });
 
     formatter = forSystems (pkgs: treefmtEval.${pkgs.stdenv.hostPlatform.system}.config.build.wrapper);
-    checks = forSystems (pkgs: {
-      formatting = treefmtEval.${pkgs.stdenv.hostPlatform.system}.config.build.check self;
-    });
   };
 }
