@@ -22,12 +22,16 @@ defmodule Atex.OAuth.SessionStore do
 
   ## Usage
 
-  Sessions are keyed by the user's DID (`sub` field).
+  Sessions are keyed by a composite `"<sub>:<nonce>"` string, where `sub` is
+  the user's DID and `nonce` is the per-device, per-account random value stored
+  on the session. This allows multiple independent sessions for the same user
+  (e.g. different devices or accounts) to coexist in the store.
 
       session = %Atex.OAuth.Session{
         iss: "https://bsky.social",
         aud: "https://puffball.us-east.host.bsky.network",
         sub: "did:plc:abc123",
+        nonce: "random-device-nonce",
         access_token: "...",
         refresh_token: "...",
         expires_at: ~N[2026-01-04 12:00:00],
@@ -38,8 +42,8 @@ defmodule Atex.OAuth.SessionStore do
       # Insert a new session
       :ok = Atex.OAuth.SessionStore.insert(session)
 
-      # Retrieve a session
-      {:ok, session} = Atex.OAuth.SessionStore.get("did:plc:abc123")
+      # Retrieve a session by composite key
+      {:ok, session} = Atex.OAuth.SessionStore.get("did:plc:abc123:random-device-nonce")
 
       # Update an existing session (e.g., after token refresh)
       updated_session = %{session | access_token: new_token}
@@ -52,7 +56,7 @@ defmodule Atex.OAuth.SessionStore do
   @store Application.compile_env(:atex, :session_store, Atex.OAuth.SessionStore.DETS)
 
   @doc """
-  Retrieve a session by DID.
+  Retrieve a session by composite key (`"<sub>:<nonce>"`).
 
   Returns `{:ok, session}` if found, `{:error, :not_found}` otherwise.
   """
@@ -61,7 +65,7 @@ defmodule Atex.OAuth.SessionStore do
   @doc """
   Insert a new session.
 
-  The key is the user's DID (`session.sub`). Returns `:ok` on success.
+  The key is derived from the session's `sub` and `nonce` fields. Returns `:ok` on success.
   """
   @callback insert(key :: String.t(), session :: Atex.OAuth.Session.t()) ::
               :ok | {:error, atom()}
@@ -77,7 +81,7 @@ defmodule Atex.OAuth.SessionStore do
   @doc """
   Delete a session.
 
-  Returns `:ok` if deleted, `:noop` if the session didn't exist, :error if it failed.
+  Returns `:ok` if deleted, `:noop` if the session didn't exist, `:error` if it failed.
   """
   @callback delete(key :: String.t()) :: :ok | :error | :noop
 
@@ -86,7 +90,7 @@ defmodule Atex.OAuth.SessionStore do
   defdelegate child_spec(opts), to: @store
 
   @doc """
-  Retrieve a session by DID.
+  Retrieve a session by composite key (`"<sub>:<nonce>"`).
   """
   @spec get(String.t()) :: {:ok, Atex.OAuth.Session.t()} | {:error, atom()}
   def get(key) do
@@ -94,26 +98,42 @@ defmodule Atex.OAuth.SessionStore do
   end
 
   @doc """
-  Insert a new session.
+  Insert a new session. The store key is derived from `session.sub` and `session.nonce`.
   """
   @spec insert(Atex.OAuth.Session.t()) :: :ok | {:error, atom()}
   def insert(session) do
-    @store.insert(session.sub, session)
+    @store.insert(session_key(session), session)
   end
 
   @doc """
-  Update an existing session.
+  Update an existing session. The store key is derived from `session.sub` and `session.nonce`.
   """
   @spec update(Atex.OAuth.Session.t()) :: :ok | {:error, atom()}
   def update(session) do
-    @store.update(session.sub, session)
+    @store.update(session_key(session), session)
   end
 
   @doc """
-  Delete a session.
+  Delete a session. The store key is derived from `session.sub` and `session.nonce`.
   """
-  @callback delete(Atex.OAuth.Session.t()) :: :ok | :error | :noop
+  @spec delete(Atex.OAuth.Session.t()) :: :ok | :error | :noop
   def delete(session) do
-    @store.delete(session.sub)
+    @store.delete(session_key(session))
   end
+
+  @doc """
+  Build the composite store key for a session.
+
+  The key is `"<sub>:<nonce>"`, combining the user's DID with the per-device
+  nonce to allow multiple independent sessions for the same user.
+
+  ## Examples
+
+      iex> session = %Atex.OAuth.Session{sub: "did:plc:abc123", nonce: "xyz", ...}
+      iex> Atex.OAuth.SessionStore.session_key(session)
+      "did:plc:abc123:xyz"
+
+  """
+  @spec session_key(Atex.OAuth.Session.t()) :: String.t()
+  def session_key(%Atex.OAuth.Session{sub: sub, nonce: nonce}), do: "#{sub}:#{nonce}"
 end

@@ -83,12 +83,17 @@ defmodule Atex.OAuth.Plug do
 
   ## Session Storage
 
-  After successful authentication, the plug stores these in the session:
+  After successful authentication, the plug stores the following in
+  `conn.session`:
 
-  - `:tokens` - The access token response containing access_token,
-    refresh_token, did, and expires_at
-  - `:dpop_nonce` -
-  - `:dpop_key` - The DPoP JWK for generating DPoP proofs
+  - `:atex_sessions` - A list of composite session keys
+    (`"<did>:<nonce>"`) for all accounts logged in on this device.
+  - `:atex_active_session` - The composite session key of the currently
+    active account. Use `Atex.OAuth.current_session_key/1` to read this,
+    and `Atex.OAuth.switch_session/2` to change it.
+
+  The full session credentials (tokens, DPoP key, etc.) are stored in
+  `Atex.OAuth.SessionStore` and looked up by the composite key.
   """
   require Logger
   use Plug.Router
@@ -96,7 +101,8 @@ defmodule Atex.OAuth.Plug do
   alias Atex.{DID, IdentityResolver, OAuth}
 
   @oauth_cookie_opts [path: "/", http_only: true, secure: true, same_site: "lax", max_age: 600]
-  @session_name :atex_session
+  @session_keys_name :atex_sessions
+  @session_active_name :atex_active_session
 
   def init(opts) do
     callback = Keyword.get(opts, :callback, nil)
@@ -186,7 +192,7 @@ defmodule Atex.OAuth.Plug do
 
     with {:ok, authz_metadata} <- OAuth.get_authorization_server_metadata(stored_issuer),
          dpop_key <- JOSE.JWK.generate_key({:ec, "P-256"}),
-         {:ok, tokens, nonce} <-
+         {:ok, tokens, dpop_nonce} <-
            OAuth.validate_authorization_code(
              authz_metadata,
              dpop_key,
@@ -198,25 +204,33 @@ defmodule Atex.OAuth.Plug do
          pds <- DID.Document.get_pds_endpoint(identity.document),
          {:ok, authz_server} <- OAuth.get_authorization_server(pds),
          true <- authz_server == stored_issuer do
+      device_nonce = OAuth.create_nonce()
+
       session = %OAuth.Session{
         iss: authz_server,
         aud: pds,
         sub: tokens.did,
+        nonce: device_nonce,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: tokens.expires_at,
         dpop_key: dpop_key,
-        dpop_nonce: nonce
+        dpop_nonce: dpop_nonce
       }
+
+      session_key = OAuth.SessionStore.session_key(session)
 
       case OAuth.SessionStore.insert(session) do
         :ok ->
+          existing_keys = get_session(conn, @session_keys_name) || []
+
           conn =
             conn
             |> delete_resp_cookie("state", @oauth_cookie_opts)
             |> delete_resp_cookie("code_verifier", @oauth_cookie_opts)
             |> delete_resp_cookie("issuer", @oauth_cookie_opts)
-            |> put_session(@session_name, tokens.did)
+            |> put_session(@session_keys_name, [session_key | existing_keys])
+            |> put_session(@session_active_name, session_key)
 
           {mod, func, args} = callback
           apply(mod, func, [conn | args])

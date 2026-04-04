@@ -73,6 +73,88 @@ defmodule Atex.OAuth do
 
   alias Atex.Config.OAuth, as: Config
 
+  @session_keys_name :atex_sessions
+  @session_active_name :atex_active_session
+
+  @doc """
+  Returns the composite session key (`"<did>:<nonce>"`) for the currently active
+  OAuth session on the given conn.
+
+  This is the primary way to identify which session is active for a request. The
+  returned key can be passed directly to `Atex.OAuth.SessionStore.get/1` or used
+  to construct an `Atex.XRPC.OAuthClient`.
+
+  ## Returns
+
+  - `{:ok, session_key}` - The composite key for the active session
+  - `:error` - No active session found in the conn
+
+  ## Examples
+
+      case Atex.OAuth.current_session_key(conn) do
+        {:ok, key} -> {:ok, client} = Atex.XRPC.OAuthClient.new(key)
+        :error -> redirect_to_login(conn)
+      end
+
+  """
+  @spec current_session_key(Plug.Conn.t()) :: {:ok, String.t()} | :error
+  def current_session_key(%Plug.Conn{} = conn) do
+    case Plug.Conn.get_session(conn, @session_active_name) do
+      key when is_binary(key) -> {:ok, key}
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Returns all composite session keys stored for this device's conn session.
+
+  Each key corresponds to a distinct authenticated account on this device. The
+  list is ordered with the most recently logged-in account first.
+
+  ## Examples
+
+      keys = Atex.OAuth.list_session_keys(conn)
+      # => ["did:plc:abc:nonce1", "did:plc:xyz:nonce2"]
+
+  """
+  @spec list_session_keys(Plug.Conn.t()) :: [String.t()]
+  def list_session_keys(%Plug.Conn{} = conn) do
+    Plug.Conn.get_session(conn, @session_keys_name) || []
+  end
+
+  @doc """
+  Switches the active session to the given composite session key.
+
+  Validates that the key is present in the conn's session list and that the
+  corresponding session still exists in the store before updating the conn.
+
+  ## Returns
+
+  - `{:ok, conn}` - Active session switched; the returned conn has the updated
+    session and should be used for subsequent operations
+  - `{:error, :not_found}` - The key is not in the session list or the session
+    no longer exists in the store
+
+  ## Examples
+
+      case Atex.OAuth.switch_session(conn, "did:plc:xyz:nonce2") do
+        {:ok, conn} -> send_resp(conn, 200, "Switched accounts")
+        {:error, :not_found} -> send_resp(conn, 404, "Session not found")
+      end
+
+  """
+  @spec switch_session(Plug.Conn.t(), String.t()) :: {:ok, Plug.Conn.t()} | {:error, :not_found}
+  def switch_session(%Plug.Conn{} = conn, session_key) when is_binary(session_key) do
+    stored_keys = list_session_keys(conn)
+
+    with true <- session_key in stored_keys,
+         {:ok, _session} <- Atex.OAuth.SessionStore.get(session_key) do
+      {:ok, Plug.Conn.put_session(conn, @session_active_name, session_key)}
+    else
+      _ -> {:error, :not_found}
+    end
+  end
+
   @doc """
   Get a map containing the client metadata information needed for an
   authorization server to validate this client.

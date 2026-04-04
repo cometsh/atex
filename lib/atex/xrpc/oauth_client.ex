@@ -2,21 +2,24 @@ defmodule Atex.XRPC.OAuthClient do
   @moduledoc """
   OAuth client for making authenticated XRPC requests to AT Protocol servers.
 
-  The client contains a user's DID and talks to `Atex.OAuth.SessionStore` to
-  retrieve sessions internally to make requests. As a result, it will only work
-  for users that have gone through an OAuth flow; see `Atex.OAuth.Plug` for an
-  existing method of doing that.
+  The client holds a composite session key (`"<did>:<nonce>"`) and talks to
+  `Atex.OAuth.SessionStore` to retrieve sessions internally to make requests.
+  It only works for users that have completed an OAuth flow; see
+  `Atex.OAuth.Plug` for an existing method of doing that.
 
   The entire OAuth session lifecycle is handled transparently, with the access
   token being refreshed automatically as required.
 
   ## Usage
 
-      # Create from an existing OAuth session
-      {:ok, client} = Atex.XRPC.OAuthClient.new("did:plc:abc123")
+      # Create from an existing composite session key
+      {:ok, client} = Atex.XRPC.OAuthClient.new("did:plc:abc123:device-nonce")
 
       # Or extract from a Plug.Conn after OAuth flow
       {:ok, client} = Atex.XRPC.OAuthClient.from_conn(conn)
+
+      # Retrieve just the DID from a client
+      "did:plc:abc123" = Atex.XRPC.OAuthClient.did(client)
 
       # Make XRPC requests
       {:ok, response, client} = Atex.XRPC.get(client, "com.atproto.repo.listRecords")
@@ -28,30 +31,50 @@ defmodule Atex.XRPC.OAuthClient do
   @behaviour Atex.XRPC.Client
 
   typedstruct enforce: true do
-    field :did, String.t()
+    field :session_key, String.t()
   end
 
   @doc """
-  Create a new OAuthClient from a DID.
+  Returns the DID portion of the client's composite session key.
 
-  Validates that an OAuth session exists for the given DID in the session store
+  The session key has the form `"<did>:<nonce>"`. This function extracts and
+  returns everything up to the final `:` separator, which is the user's DID.
+
+  ## Examples
+
+      iex> client = %Atex.XRPC.OAuthClient{session_key: "did:plc:abc123:mynonce"}
+      iex> Atex.XRPC.OAuthClient.did(client)
+      "did:plc:abc123"
+
+  """
+  @spec did(t()) :: String.t()
+  def did(%__MODULE__{session_key: session_key}) do
+    session_key
+    |> String.split(":")
+    |> Enum.drop(-1)
+    |> Enum.join(":")
+  end
+
+  @doc """
+  Create a new OAuthClient from a composite session key (`"<did>:<nonce>"`).
+
+  Validates that an OAuth session exists for the given key in the session store
   before returning the client struct.
 
   ## Examples
 
-      iex> Atex.XRPC.OAuthClient.new("did:plc:abc123")
-      {:ok, %Atex.XRPC.OAuthClient{did: "did:plc:abc123"}}
+      iex> Atex.XRPC.OAuthClient.new("did:plc:abc123:mynonce")
+      {:ok, %Atex.XRPC.OAuthClient{session_key: "did:plc:abc123:mynonce"}}
 
-      iex> Atex.XRPC.OAuthClient.new("did:plc:nosession")
+      iex> Atex.XRPC.OAuthClient.new("did:plc:nosession:nonce")
       {:error, :not_found}
 
   """
   @spec new(String.t()) :: {:ok, t()} | {:error, atom()}
-  def new(did) do
-    # Make sure session exists before returning a struct
-    case Atex.OAuth.SessionStore.get(did) do
+  def new(session_key) do
+    case Atex.OAuth.SessionStore.get(session_key) do
       {:ok, _session} ->
-        {:ok, %__MODULE__{did: did}}
+        {:ok, %__MODULE__{session_key: session_key}}
 
       err ->
         err
@@ -61,32 +84,31 @@ defmodule Atex.XRPC.OAuthClient do
   @doc """
   Create an OAuthClient from a `Plug.Conn`.
 
-  Extracts the DID from the session (stored under `:atex_session` key) and validates
-  that the OAuth session is still valid. If the token is expired or expiring soon,
-  it attempts to refresh it.
+  Reads the active session key from `conn.session` (stored under
+  `:atex_active_session`) and validates that the OAuth session is still valid.
+  If the token is expired or expiring soon, it attempts to refresh it.
 
-  Requires the conn to have passed through `Plug.Session` and `Plug.Conn.fetch_session/2`.
+  Requires the conn to have passed through `Plug.Session` and
+  `Plug.Conn.fetch_session/2`.
 
   ## Returns
 
   - `{:ok, client}` - Successfully created client
-  - `{:error, :reauth}` - Session exists but refresh failed, user needs to re-authenticate
-  - `:error` - No session found in conn
+  - `{:error, :reauth}` - Session exists but refresh failed; user needs to
+    re-authenticate
+  - `:error` - No active session found in conn
 
   ## Examples
 
       # After OAuth flow completes
-      conn = Plug.Conn.put_session(conn, :atex_session, "did:plc:abc123")
       {:ok, client} = Atex.XRPC.OAuthClient.from_conn(conn)
 
   """
   @spec from_conn(Plug.Conn.t()) :: {:ok, t()} | :error | {:error, atom()}
   def from_conn(%Plug.Conn{} = conn) do
-    oauth_did = Plug.Conn.get_session(conn, :atex_session)
-
-    case oauth_did do
-      did when is_binary(did) ->
-        client = %__MODULE__{did: did}
+    case OAuth.current_session_key(conn) do
+      {:ok, session_key} ->
+        client = %__MODULE__{session_key: session_key}
 
         with_session_lock(client, fn ->
           case maybe_refresh(client) do
@@ -95,7 +117,7 @@ defmodule Atex.XRPC.OAuthClient do
           end
         end)
 
-      _ ->
+      :error ->
         :error
     end
   end
@@ -119,8 +141,8 @@ defmodule Atex.XRPC.OAuthClient do
   end
 
   @spec do_refresh(t()) :: {:ok, OAuth.Session.t()} | {:error, any()}
-  defp do_refresh(%__MODULE__{did: did}) do
-    with {:ok, session} <- OAuth.SessionStore.get(did),
+  defp do_refresh(%__MODULE__{session_key: session_key}) do
+    with {:ok, session} <- OAuth.SessionStore.get(session_key),
          {:ok, authz_server} <- OAuth.get_authorization_server(session.aud),
          {:ok, %{token_endpoint: token_endpoint}} <-
            OAuth.get_authorization_server_metadata(authz_server) do
@@ -130,16 +152,17 @@ defmodule Atex.XRPC.OAuthClient do
              session.iss,
              token_endpoint
            ) do
-        {:ok, tokens, nonce} ->
+        {:ok, tokens, dpop_nonce} ->
           new_session = %OAuth.Session{
             iss: session.iss,
             aud: session.aud,
             sub: tokens.did,
+            nonce: session.nonce,
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             expires_at: tokens.expires_at,
             dpop_key: session.dpop_key,
-            dpop_nonce: nonce
+            dpop_nonce: dpop_nonce
           }
 
           case OAuth.SessionStore.update(new_session) do
@@ -154,8 +177,8 @@ defmodule Atex.XRPC.OAuthClient do
   end
 
   @spec maybe_refresh(t(), integer()) :: {:ok, OAuth.Session.t()} | {:error, any()}
-  defp maybe_refresh(%__MODULE__{did: did} = client, buffer_minutes \\ 5) do
-    with {:ok, session} <- OAuth.SessionStore.get(did) do
+  defp maybe_refresh(%__MODULE__{session_key: session_key} = client, buffer_minutes \\ 5) do
+    with {:ok, session} <- OAuth.SessionStore.get(session_key) do
       if token_expiring_soon?(session.expires_at, buffer_minutes) do
         do_refresh(client)
       else
@@ -179,7 +202,6 @@ defmodule Atex.XRPC.OAuthClient do
   """
   @impl true
   def get(%__MODULE__{} = client, resource, opts \\ []) do
-    # TODO: Keyword.valiate to make sure :method isn't passed?
     request(client, resource, opts ++ [method: :get])
   end
 
@@ -190,7 +212,6 @@ defmodule Atex.XRPC.OAuthClient do
   """
   @impl true
   def post(%__MODULE__{} = client, resource, opts \\ []) do
-    # Ditto
     request(client, resource, opts ++ [method: :post])
   end
 
@@ -232,11 +253,11 @@ defmodule Atex.XRPC.OAuthClient do
   end
 
   # Execute a function with an exclusive lock on the session identified by the
-  # client's DID. This ensures that concurrent requests for the same user don't
-  # race during token refresh.
+  # composite session key. This ensures that concurrent requests for the same
+  # session don't race during token refresh.
   @spec with_session_lock(t(), (-> result)) :: result when result: any()
-  defp with_session_lock(%__MODULE__{did: did}, fun) do
-    Mutex.with_lock(Atex.SessionMutex, did, fun)
+  defp with_session_lock(%__MODULE__{session_key: session_key}, fun) do
+    Mutex.with_lock(Atex.SessionMutex, session_key, fun)
   end
 
   defp handle_failure(client, request, response) do
@@ -256,8 +277,8 @@ defmodule Atex.XRPC.OAuthClient do
 
             {:ok, response, _nonce} ->
               if auth_error?(response) do
-                # We tried to refresh the token once but it's still failing
-                # Clear session and prompt dev to reauth or something
+                # We tried to refresh the token once but it's still failing;
+                # clear the session and prompt re-authentication.
                 OAuth.SessionStore.delete(session)
                 {:error, response, :expired}
               else

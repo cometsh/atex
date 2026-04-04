@@ -9,7 +9,10 @@ defmodule Atex.OAuth.Session do
 
   - `:iss` - Authorization server issuer URL
   - `:aud` - PDS endpoint URL (audience)
-  - `:sub` - User's DID (subject), used as the session key
+  - `:sub` - User's DID (subject)
+  - `:nonce` - Per-device, per-account random nonce generated at login time.
+    Combined with `:sub` to form the session store key (`"<sub>:<nonce>"`),
+    enabling per-device session isolation and granular revocation.
   - `:access_token` - OAuth access token for authenticating requests
   - `:refresh_token` - OAuth refresh token for obtaining new access tokens
   - `:expires_at` - When the current access token expires (NaiveDateTime in UTC)
@@ -25,6 +28,7 @@ defmodule Atex.OAuth.Session do
         iss: "https://bsky.social",
         aud: "https://puffball.us-east.host.bsky.network",
         sub: "did:plc:abc123",
+        nonce: "random-device-nonce",
         access_token: "...",
         refresh_token: "...",
         expires_at: ~N[2026-01-04 12:00:00],
@@ -41,6 +45,8 @@ defmodule Atex.OAuth.Session do
     field :aud, String.t()
     # User's DID
     field :sub, String.t()
+    # Per-account & per-device nonce
+    field :nonce, String.t()
     field :access_token, String.t()
     field :refresh_token, String.t()
     field :expires_at, NaiveDateTime.t()
