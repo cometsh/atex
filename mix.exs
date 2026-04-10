@@ -3,7 +3,7 @@ defmodule Atex.MixProject do
 
   @version "0.8.0"
   @github "https://github.com/cometsh/atex"
-  @tangled "https://tangled.sh/@comet.sh/atex"
+  @tangled "https://tangled.org/@comet.sh/atex"
 
   def project do
     [
@@ -46,7 +46,10 @@ defmodule Atex.MixProject do
       {:bandit, "~> 1.0", only: [:dev, :test]},
       {:con_cache, "~> 1.1"},
       {:mutex, "~> 3.0"},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:dasl, "~> 0.1"},
+      {:mst, "~> 0.1"},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:benchee, "~> 1.3", only: :dev}
     ]
   end
 
@@ -70,6 +73,7 @@ defmodule Atex.MixProject do
       formatters: ["html"],
       groups_for_modules: [
         "Data types": [Atex.AtURI, ~r/^Atex\.DID/, Atex.Handle, Atex.NSID, Atex.TID],
+        Repository: ~r/^Atex\.Repo/,
         XRPC: ~r/^Atex\.XRPC/,
         PLC: [Atex.PLC],
         OAuth: [Atex.Config.OAuth, ~r/^Atex\.OAuth/],

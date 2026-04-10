@@ -10,6 +10,9 @@ and this project adheres to
 
 ### Added
 
+- `Atex.Repo` module for building, mutating, signing, serialising, and loading
+  AT Protocol repositories. Also supports lazily streaming from a CAR binary for
+  efficient processing of large repository exports.
 - `Atex.XRPC.UnauthedClient` module for running unauthenticated XRPC fetches on
   public APIs or PDSes.
 - `Atex.NSID.authority_domain/1` for deriving the `_lexicon.<authority>` DNS

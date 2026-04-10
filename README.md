@@ -8,18 +8,19 @@ An Elixir toolkit for the [AT Protocol](https://atproto.com).
   - [x] `at://` links
   - [x] TIDs
   - [ ] NSIDs
-  - [ ] CIDs
 - [x] Identity resolution with bi-directional validation and caching.
-- [x] Macro and codegen for converting Lexicon definitions to runtime schemas and structs.
+- [x] Macro and codegen for converting Lexicon definitions to runtime schemas
+      and structs.
 - [x] OAuth client
 - [x] XRPC client
   - With integration for generated Lexicon structs!
-- [ ] Repository reading and manipulation (MST & CAR)
+- [x] Repository reading and manipulation
 - [x] Service auth
 - [x] PLC client
 - [x] XRPC server router
 
-Looking to use a data subscription service like the Firehose, [Jetstream], or [Tap]? Check out [Drinkup].
+Looking to use a data subscription service like the Firehose, [Jetstream], or
+[Tap]? Check out [Drinkup].
 
 [Jetstream]: https://docs.bsky.app/blog/jetstream
 [Tap]: https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md
