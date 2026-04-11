@@ -53,11 +53,8 @@ defmodule Atex.Lexicon.Validators.String do
     do: Validators.boolean_validate(Atex.AtURI.match?(value), "should be a valid at:// URI")
 
   defp validate_option(value, {:format, "cid"}) do
-    # TODO: is there a regex provided by the lexicon docs/somewhere?
-    try do
-      Multiformats.CID.decode(value)
-      :ok
-    rescue
+    case DASL.CID.new(value) do
+      {:ok, _} -> :ok
       _ -> {:error, "should be a valid CID", []}
     end
   end
