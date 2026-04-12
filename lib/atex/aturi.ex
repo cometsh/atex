@@ -140,6 +140,36 @@ defmodule Atex.AtURI do
     |> String.trim_trailing("/")
   end
 
+  @doc """
+  Sigil for constructing an `Atex.AtURI` struct from a string literal.
+  Raises `ArgumentError` if the string is not a valid `at://` URI.
+
+  ## Examples
+
+      iex> import Atex.AtURI
+      iex> ~AT"at://did:plc:44ybard66vv44zksje25o7dz/app.bsky.feed.post/3jwdwj2ctlk26"
+      ~AT"at://did:plc:44ybard66vv44zksje25o7dz/app.bsky.feed.post/3jwdwj2ctlk26"
+
+  """
+  defmacro sigil_AT({:<<>>, _meta, [value]}, _modifiers) when is_binary(value) do
+    case Atex.AtURI.new(value) do
+      {:ok, uri} ->
+        Macro.escape(uri)
+
+      :error ->
+        raise ArgumentError, "invalid at:// URI: #{inspect(value)}"
+    end
+  end
+
+  defmacro sigil_AT({:<<>>, _meta, _parts} = ast, _modifiers) do
+    quote do
+      case Atex.AtURI.new(unquote(ast)) do
+        {:ok, uri} -> uri
+        :error -> raise ArgumentError, "invalid at:// URI: #{inspect(unquote(ast))}"
+      end
+    end
+  end
+
   defp from_named_captures(%{"authority" => authority, "collection" => "", "rkey" => ""}),
     do: %__MODULE__{authority: authority}
 
@@ -156,4 +186,8 @@ end
 
 defimpl String.Chars, for: Atex.AtURI do
   def to_string(uri), do: Atex.AtURI.to_string(uri)
+end
+
+defimpl Inspect, for: Atex.AtURI do
+  def inspect(uri, _opts), do: ~s(~AT"#{Atex.AtURI.to_string(uri)}")
 end

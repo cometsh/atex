@@ -182,8 +182,43 @@ defmodule Atex.TID do
   """
   @spec match?(String.t()) :: boolean()
   def match?(value), do: Regex.match?(@re, value)
+
+  @doc """
+  Sigil for constructing a `Atex.TID` struct from a string literal at
+  compile-time or runtime. Raises `ArgumentError` if the string is not a valid
+  TID.
+
+  ## Examples
+
+      iex> import Atex.TID
+      iex> ~TID"3jzfcijpj2z2a"
+      ~TID"3jzfcijpj2z2a"
+
+  """
+  defmacro sigil_TID({:<<>>, _meta, [value]}, _modifiers) when is_binary(value) do
+    case Atex.TID.decode(value) do
+      {:ok, tid} ->
+        Macro.escape(tid)
+
+      :error ->
+        raise ArgumentError, "invalid TID: #{inspect(value)}"
+    end
+  end
+
+  defmacro sigil_TID({:<<>>, _meta, _parts} = ast, _modifiers) do
+    quote do
+      case Atex.TID.decode(unquote(ast)) do
+        {:ok, tid} -> tid
+        :error -> raise ArgumentError, "invalid TID: #{inspect(unquote(ast))}"
+      end
+    end
+  end
 end
 
 defimpl String.Chars, for: Atex.TID do
   def to_string(tid), do: Atex.TID.encode(tid)
+end
+
+defimpl Inspect, for: Atex.TID do
+  def inspect(tid, _opts), do: ~s(~TID"#{Atex.TID.encode(tid)}")
 end

@@ -26,6 +26,8 @@ and this project adheres to
   [publication and resolution spec](https://atproto.com/specs/lexicon#lexicon-publication-and-resolution).
 - `mix atex.lexicons.resolve` task for resolving one or more lexicons by NSID
   and writing to a JSON file.
+- Sigils for `Atex.AtURI` and `Atex.TID`, `~AT"at://..."` and `~TID"..."`
+  respectively.
 
 ## [0.8.0] - 2026-03-29
 
