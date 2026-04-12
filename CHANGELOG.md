@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- `Atex.NSID` is now a struct (`%Atex.NSID{authority, name, fragment}`). Public
+  functions now accept and return structs. You can use `new/1`, `new!/1` or the
+  new `~NSID""` for constructing from a NSID string.
+
 ### Added
 
 - `Atex.Repo` module for building, mutating, signing, serialising, and loading
@@ -15,8 +21,6 @@ and this project adheres to
   efficient processing of large repository exports.
 - `Atex.XRPC.UnauthedClient` module for running unauthenticated XRPC fetches on
   public APIs or PDSes.
-- `Atex.NSID.authority_domain/1` for deriving the `_lexicon.<authority>` DNS
-  name from an NSID.
 - `Atex.Lexicon.Resolver` module for resolving published lexicons by NSID,
   following the
   [publication and resolution spec](https://atproto.com/specs/lexicon#lexicon-publication-and-resolution).

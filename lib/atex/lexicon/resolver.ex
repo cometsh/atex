@@ -62,7 +62,8 @@ defmodule Atex.Lexicon.Resolver do
              | :invalid_record
              | any()}
   def resolve(nsid) do
-    with {:ok, authority_domain} <- NSID.authority_domain(nsid),
+    with {:ok, parsed} <- NSID.new(nsid),
+         authority_domain = NSID.authority_domain(parsed),
          {:ok, did} <- resolve_did_from_dns(authority_domain),
          {:ok, document} <- resolve_did_document(did),
          {:ok, pds_endpoint} <- get_pds_endpoint(document) do

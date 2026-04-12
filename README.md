@@ -4,10 +4,10 @@ An Elixir toolkit for the [AT Protocol](https://atproto.com).
 
 ## Feature map
 
-- [ ] ATProto strings
+- [x] ATProto strings
   - [x] `at://` links
   - [x] TIDs
-  - [ ] NSIDs
+  - [x] NSIDs
 - [x] Identity resolution with bi-directional validation and caching.
 - [x] Macro and codegen for converting Lexicon definitions to runtime schemas
       and structs.

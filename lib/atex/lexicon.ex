@@ -85,9 +85,11 @@ defmodule Atex.Lexicon do
       |> then(&Recase.Enumerable.atomize_keys/1)
       |> then(&Atex.Lexicon.Schema.lexicon!/1)
 
+    nsid = Atex.NSID.new!(lexicon.id)
+
     defs =
       lexicon.defs
-      |> Enum.flat_map(fn {def_name, def} -> def_to_schema(lexicon.id, def_name, def) end)
+      |> Enum.flat_map(fn {def_name, def} -> def_to_schema(nsid, def_name, def) end)
       |> Enum.map(fn
         {schema_key, quoted_schema, quoted_type} -> {schema_key, quoted_schema, quoted_type, nil}
         x -> x
@@ -135,7 +137,7 @@ defmodule Atex.Lexicon do
 
   # - [ ] `t()` type should be the struct in it. (add to non-main structs too?)
 
-  @spec def_to_schema(nsid :: String.t(), def_name :: String.t(), lexicon_def :: map()) ::
+  @spec def_to_schema(nsid :: Atex.NSID.t(), def_name :: String.t(), lexicon_def :: map()) ::
           list(
             {
               key :: atom(),
@@ -152,7 +154,7 @@ defmodule Atex.Lexicon do
 
   defp def_to_schema(nsid, def_name, %{type: "record", record: record}) do
     # TODO: record rkey format validator
-    type_name = Atex.NSID.canonical_name(nsid, to_string(def_name))
+    type_name = Atex.NSID.canonical_name(%{nsid | fragment: to_string(def_name)})
 
     record =
       put_in(record, [:properties, :"$type"], %{
@@ -218,7 +220,16 @@ defmodule Atex.Lexicon do
         {key, %{default: default}} -> {key, default}
         {key, _field} -> {key, nil}
       end)
-      |> then(&(&1 ++ [{:"$type", if(def_name == :main, do: nsid, else: "#{nsid}##{def_name}")}]))
+      |> then(
+        &(&1 ++
+            [
+              {:"$type",
+               if(def_name == :main,
+                 do: Atex.NSID.to_string(nsid),
+                 else: "#{nsid.authority}.#{nsid.name}##{def_name}"
+               )}
+            ])
+      )
 
     enforced_keys =
       properties |> Map.keys() |> Enum.filter(&(to_string(&1) in required && &1 != :"$type"))
@@ -477,7 +488,7 @@ defmodule Atex.Lexicon do
   defp def_to_schema(nsid, def_name, %{type: "ref", ref: ref}) do
     target_module =
       nsid
-      |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+      |> Atex.NSID.expand_fragment_shorthand(ref)
       |> ref_to_module()
 
     {quoted_schema, quoted_type} = field_to_schema(%{type: "ref", ref: ref}, nsid)
@@ -494,7 +505,7 @@ defmodule Atex.Lexicon do
     target_modules =
       Enum.map(refs, fn ref ->
         nsid
-        |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+        |> Atex.NSID.expand_fragment_shorthand(ref)
         |> ref_to_module()
       end)
 
@@ -530,7 +541,7 @@ defmodule Atex.Lexicon do
     [{atomise(def_name), quoted_schema, quoted_type}]
   end
 
-  @spec field_to_schema(field_def :: %{type: String.t()}, nsid :: String.t()) ::
+  @spec field_to_schema(field_def :: %{type: String.t()}, nsid :: Atex.NSID.t()) ::
           {quoted_schema :: term(), quoted_typespec :: term()}
   defp field_to_schema(%{type: "string"} = field, _nsid) do
     fixed_schema = const_or_enum(field)
@@ -655,7 +666,8 @@ defmodule Atex.Lexicon do
   defp field_to_schema(%{type: "ref", ref: ref}, nsid) do
     {nsid, fragment} =
       nsid
-      |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+      |> Atex.NSID.expand_fragment_shorthand(ref)
+      |> Atex.NSID.new!()
       |> Atex.NSID.to_atom_with_fragment()
 
     fragment = Recase.to_snake(fragment)
@@ -678,7 +690,8 @@ defmodule Atex.Lexicon do
       |> Enum.map(fn ref ->
         {nsid, fragment} =
           nsid
-          |> Atex.NSID.expand_possible_fragment_shorthand(ref)
+          |> Atex.NSID.expand_fragment_shorthand(ref)
+          |> Atex.NSID.new!()
           |> Atex.NSID.to_atom_with_fragment()
 
         fragment = Recase.to_snake(fragment)
@@ -731,12 +744,12 @@ defmodule Atex.Lexicon do
   defp atomise(x) when is_atom(x), do: x
   defp atomise(x) when is_binary(x), do: String.to_atom(x)
 
-  # Resolves a fully-expanded NSID (possibly with a `#fragment`) to the
+  # Resolves a fully-expanded NSID string (possibly with a `#fragment`) to the
   # Elixir module atom that `deflexicon` generates for it. When the fragment is
   # `main` (or absent), the module is the root NSID module. Otherwise it is a
   # PascalCase-named submodule of the root NSID module.
-  defp ref_to_module(expanded_nsid) do
-    {nsid_atom, fragment} = Atex.NSID.to_atom_with_fragment(expanded_nsid)
+  defp ref_to_module(expanded_nsid) when is_binary(expanded_nsid) do
+    {nsid_atom, fragment} = expanded_nsid |> Atex.NSID.new!() |> Atex.NSID.to_atom_with_fragment()
 
     if fragment == :main do
       nsid_atom
