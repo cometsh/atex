@@ -2,12 +2,13 @@ defmodule Atex.OAuth.Plug do
   @moduledoc """
   Plug router for handling AT Protocol's OAuth flow.
 
-  This module provides three endpoints:
+  This module provides four endpoints:
 
   - `GET /login?handle=<handle>` - Initiates the OAuth authorization flow for a
     given handle
   - `GET /callback` - Handles the OAuth callback after user authorization
   - `GET /client-metadata.json` - Serves the OAuth client metadata
+  - `GET /logout` - Logs out the current session and revokes tokens
 
   ## Usage
 
@@ -19,6 +20,9 @@ defmodule Atex.OAuth.Plug do
   Function, Args). This callback is invoked after successful OAuth
   authentication, receiving the connection with the authenticated session data.
 
+  An optional `:logout_callback` option can be provided for handling logout
+  redirects. If not provided, the user is redirected to "/".
+
   ## Error Handling
 
   `Atex.OAuth.Error` exceptions are raised when errors occur during the OAuth
@@ -29,7 +33,7 @@ defmodule Atex.OAuth.Plug do
   ## Example
 
   Example implementation showing how to set up the OAuth plug with proper
-  session handling, error handling, and a callback function.
+  session handling, error handling, and callbacks.
 
       defmodule ExampleOAuthPlug do
         use Plug.Router
@@ -45,12 +49,24 @@ defmodule Atex.OAuth.Plug do
         plug :match
         plug :dispatch
 
-        forward "/oauth", to: Atex.OAuth.Plug, init_opts: [callback: {__MODULE__, :oauth_callback, []}]
+        forward "/oauth", to: Atex.OAuth.Plug,
+          init_opts: [
+            callback: {__MODULE__, :oauth_callback, []},
+            logout_callback: {__MODULE__, :logout_callback, []}
+          ]
 
         def oauth_callback(conn) do
           # Handle successful OAuth authentication
           conn
           |> put_resp_header("Location", "/dashboard")
+          |> resp(307, "")
+          |> send_resp()
+        end
+
+        def logout_callback(conn) do
+          # Handle logout redirect
+          conn
+          |> put_resp_header("Location", "/login")
           |> resp(307, "")
           |> send_resp()
         end
@@ -109,6 +125,12 @@ defmodule Atex.OAuth.Plug do
 
     if !match?({_module, _function, _args}, callback) do
       raise "expected callback to be a MFA tuple"
+    end
+
+    logout_callback = Keyword.get(opts, :logout_callback, nil)
+
+    if logout_callback && !match?({_module, _function, _args}, logout_callback) do
+      raise "expected logout_callback to be a MFA tuple"
     end
 
     opts
@@ -246,12 +268,87 @@ defmodule Atex.OAuth.Plug do
           message: "OAuth issuer does not match PDS' authorization server",
           reason: :issuer_mismatch
 
-      _err ->
+      err ->
+        IO.inspect(err)
+
         raise Atex.OAuth.Error,
           message: "Failed to validate authorization code or token",
           reason: :token_validation_failed
     end
   end
 
-  # TODO: logout route
+  get "/logout" do
+    conn = fetch_session(conn)
+    logout_callback = Keyword.get(conn.private.atex_oauth_opts, :logout_callback)
+
+    conn =
+      case OAuth.current_session_key(conn) do
+        {:ok, session_key} ->
+          case revoke_session(conn, session_key) do
+            {:ok, conn} -> conn
+            {:error, _} -> conn
+          end
+
+        :error ->
+          conn
+      end
+
+    conn = Plug.Conn.clear_session(conn)
+
+    if logout_callback do
+      {mod, func, args} = logout_callback
+      apply(mod, func, [conn | args])
+    else
+      conn
+      |> put_resp_header("location", "/")
+      |> send_resp(302, "")
+    end
+  end
+
+  @doc """
+  Revokes a session, removing it from the store and cleaning up the Plug session.
+
+  This function:
+  1. Deletes the session from `Atex.OAuth.SessionStore`
+  2. Revokes tokens with the authorization server
+  3. Removes the session key from the Plug session's active session
+  4. If the deleted session was the active one, switches to another or clears it
+
+  ## Parameters
+
+    - `conn` - The Plug connection
+    - `session_key` - The composite session key to revoke
+
+  ## Returns
+
+    - `{:ok, conn}` - Session revoked; the returned conn has updated session data
+    - `{:error, :not_found}` - Session key not found
+
+  """
+  @spec revoke_session(Plug.Conn.t(), String.t()) :: {:ok, Plug.Conn.t()} | {:error, :not_found}
+  def revoke_session(%Plug.Conn{} = conn, session_key) do
+    case OAuth.delete_session(session_key) do
+      :ok ->
+        session_keys = get_session(conn, @session_keys_name) || []
+        active_key = get_session(conn, @session_active_name)
+
+        session_keys = List.delete(session_keys, session_key)
+
+        conn =
+          if active_key == session_key do
+            new_active = List.first(session_keys)
+
+            conn
+            |> put_session(@session_active_name, new_active)
+            |> put_session(@session_keys_name, session_keys)
+          else
+            put_session(conn, @session_keys_name, session_keys)
+          end
+
+        {:ok, conn}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 end

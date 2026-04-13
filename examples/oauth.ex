@@ -15,7 +15,12 @@ defmodule ExampleOAuthPlug do
   plug :match
   plug :dispatch
 
-  forward "/oauth", to: Atex.OAuth.Plug, init_opts: [callback: {__MODULE__, :oauth_callback, []}]
+  forward "/oauth",
+    to: Atex.OAuth.Plug,
+    init_opts: [
+      callback: {__MODULE__, :oauth_callback, []},
+      logout_callback: {__MODULE__, :logout_callback, []}
+    ]
 
   def oauth_callback(conn) do
     IO.inspect(conn, label: "callback from oauth!")
@@ -26,12 +31,20 @@ defmodule ExampleOAuthPlug do
     |> send_resp()
   end
 
+  def logout_callback(conn) do
+    conn
+    |> put_resp_header("Location", "/")
+    |> resp(302, "")
+    |> send_resp()
+  end
+
   get "/whoami" do
     conn = fetch_session(conn)
 
     case XRPC.OAuthClient.from_conn(conn) do
       {:ok, client} ->
-        send_resp(conn, 200, "hello #{client.did}")
+        did = XRPC.OAuthClient.did(client)
+        send_resp(conn, 200, "hello #{did}")
 
       :error ->
         send_resp(conn, 401, "Unauthorized")
@@ -43,8 +56,8 @@ defmodule ExampleOAuthPlug do
 
     with {:ok, client} <- XRPC.OAuthClient.from_conn(conn),
          {:ok, response, client} <-
-           XRPC.post(client, %Com.Atproto.Repo.CreateRecord{
-             input: %Com.Atproto.Repo.CreateRecord.Input{
+           XRPC.post(client, "com.atproto.repo.createRecord",
+             json: %{
                repo: client.did,
                collection: "app.bsky.feed.post",
                rkey: Atex.TID.now() |> to_string(),
@@ -54,7 +67,7 @@ defmodule ExampleOAuthPlug do
                  createdAt: DateTime.to_iso8601(DateTime.utc_now())
                }
              }
-           }) do
+           ) do
       IO.inspect(response, label: "output")
 
       send_resp(conn, 200, response.body.uri)

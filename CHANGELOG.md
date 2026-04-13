@@ -28,6 +28,9 @@ and this project adheres to
   and writing to a JSON file.
 - Sigils for `Atex.AtURI` and `Atex.TID`, `~AT"at://..."` and `~TID"..."`
   respectively.
+- `/logout` route for `Atex.OAuth.Plug` to revoke the current session, as well
+  as `Atex.OAuth.Plug.revoke_session/2` to revoke a conn's session
+  programmaticly (e.g. from a session management dashboard).
 
 ## [0.8.0] - 2026-03-29
 

@@ -22,4 +22,6 @@ defmodule Atex.OAuth.Error do
   """
 
   defexception [:message, :reason]
+
+  def message(exception), do: "#{exception.message}. reason: #{exception.reason}"
 end

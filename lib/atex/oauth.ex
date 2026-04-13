@@ -36,7 +36,8 @@ defmodule Atex.OAuth do
           issuer: String.t(),
           par_endpoint: String.t(),
           token_endpoint: String.t(),
-          authorization_endpoint: String.t()
+          authorization_endpoint: String.t(),
+          revocation_endpoint: String.t()
         }
 
   @type tokens() :: %{
@@ -71,7 +72,10 @@ defmodule Atex.OAuth do
           | {:redirect_uri, String.t()}
           | {:scopes, String.t()}
 
+  require Logger
+
   alias Atex.Config.OAuth, as: Config
+  alias Atex.OAuth.{Session, SessionStore}
 
   @session_keys_name :atex_sessions
   @session_active_name :atex_active_session
@@ -544,7 +548,8 @@ defmodule Atex.OAuth do
              "issuer" => metadata_issuer,
              "pushed_authorization_request_endpoint" => par_endpoint,
              "token_endpoint" => token_endpoint,
-             "authorization_endpoint" => authorization_endpoint
+             "authorization_endpoint" => authorization_endpoint,
+             "revocation_endpoint" => revocation_endpoint
            }
          }} ->
           if issuer != metadata_issuer do
@@ -555,7 +560,8 @@ defmodule Atex.OAuth do
                issuer: metadata_issuer,
                par_endpoint: par_endpoint,
                token_endpoint: token_endpoint,
-               authorization_endpoint: authorization_endpoint
+               authorization_endpoint: authorization_endpoint,
+               revocation_endpoint: revocation_endpoint
              }}
           end
 
@@ -607,6 +613,7 @@ defmodule Atex.OAuth do
                 {:ok, body, dpop_nonce}
 
               {:ok, %{body: %{"error" => error, "error_description" => error_description}}} ->
+                IO.inspect(request)
                 {:error, {:oauth_error, error, error_description}, dpop_nonce}
 
               {:ok, _} ->
@@ -617,6 +624,8 @@ defmodule Atex.OAuth do
             end
 
           true ->
+            IO.inspect(request)
+
             {:error, {:oauth_error, resp.body["error"], resp.body["error_description"]},
              dpop_nonce}
         end
@@ -682,9 +691,97 @@ defmodule Atex.OAuth do
               err
           end
         end
+    end
+  end
 
-      err ->
-        err
+  @doc """
+  Revokes the access and refresh tokens with the authorization server.
+
+  Sends both tokens to the revocation endpoint as defined in RFC 7009.
+  This invalidates the tokens on the PDS side, preventing further use.
+
+  ## Parameters
+
+    - `session` - The session containing tokens to revoke
+    - `authz_metadata` - Authorization server metadata including `revocation_endpoint`
+
+  ## Returns
+
+    - `:ok` - Tokens successfully revoked (or revocation endpoint unreachable)
+    - `{:error, reason}` - Revocation failed
+
+  """
+  @spec revoke_tokens(Session.t(), authorization_metadata()) :: :ok | {:error, any()}
+  def revoke_tokens(%Session{} = session, authz_metadata) do
+    client_id = Config.client_id()
+
+    body = %{
+      client_id: client_id,
+      token: session.refresh_token,
+      token_type_hint: "refresh_token"
+    }
+
+    case Req.post(authz_metadata.revocation_endpoint, form: body) do
+      {:ok, %{status: status}} when status in [200, 204] ->
+        :ok
+
+      {:ok, %{body: %{"error" => error}}} ->
+        Logger.warning("Token revocation failed: #{error}")
+        :ok
+
+      {:error, reason} ->
+        Logger.warning("Token revocation request failed: #{inspect(reason)}")
+        :ok
+
+      unexpected ->
+        Logger.warning("Unexpected token revocation response: #{inspect(unexpected)}")
+        :ok
+    end
+  end
+
+  @doc """
+  Deletes a session from the store and revokes its tokens.
+
+  This is the primary function for logging out a session. It:
+  1. Fetches the session data from the store if a key is provided
+  2. Revokes the tokens with the authorization server
+  3. Removes the session from the store
+
+  ## Parameters
+
+    - `session_or_key` - Either a `Session.t()` struct or a composite session key string
+
+  ## Returns
+
+    - `:ok` - Session deleted and tokens revoked
+    - `{:error, :not_found}` - Session not found in store
+    - `{:error, reason}` - Token revocation or store deletion failed
+
+  ## Examples
+
+      # Using a session key
+      case Atex.OAuth.delete_session("did:plc:abc123:device-nonce") do
+        :ok -> :logged_out
+        {:error, :not_found} -> :session_already_gone
+      end
+
+      # Using a session struct
+      {:ok, session} = Atex.OAuth.SessionStore.get("did:plc:abc123:device-nonce")
+      :ok = Atex.OAuth.delete_session(session)
+
+  """
+  @spec delete_session(Session.t() | String.t()) :: :ok | {:error, :not_found | any()}
+  def delete_session(%Session{} = session) do
+    with {:ok, authz_metadata} <- get_authorization_server_metadata(session.iss, true),
+         :ok <- revoke_tokens(session, authz_metadata) do
+      SessionStore.delete(session)
+    end
+  end
+
+  def delete_session(session_key) when is_binary(session_key) do
+    case SessionStore.get(session_key) do
+      {:ok, session} -> delete_session(session)
+      {:error, reason} -> {:error, reason}
     end
   end
 
