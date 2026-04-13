@@ -10,21 +10,30 @@ defmodule Atex.XRPC do
 
       # Login-based client
       {:ok, client} = Atex.XRPC.LoginClient.login("https://bsky.social", "user.bsky.social", "password")
-      {:ok, response, client} = Atex.XRPC.get(client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"])
+      {:ok, response, client} = Atex.XRPC.get(client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"})
 
       # OAuth-based client
       {:ok, oauth_client} = Atex.XRPC.OAuthClient.from_conn(conn)
-      {:ok, response, oauth_client} = Atex.XRPC.get(oauth_client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"])
+      {:ok, response, oauth_client} = Atex.XRPC.get(oauth_client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"})
 
   ## Unauthenticated requests
 
-  Unauthenticated functions (`unauthed_get/3`, `unauthed_post/3`) do not require a client
+  Unauthenticated functions (`unauthed_get/3`, `unauthed_post/3`) are do not require a client
   and work directly with endpoints:
 
       {:ok, response} = Atex.XRPC.unauthed_get("https://bsky.social", "com.atproto.sync.getHead", params: [did: "did:plc:..."])
+
+  ## Error handling
+
+  When using lexicon structs, error responses are automatically coerced into
+  `Atex.XRPC.Error` structs. If the error matches a lexicon-defined error,
+  the specific error struct will be available via the `error_struct` field.
+
+      {:ok, %Atex.XRPC.Error{error: "SomethingBroke", message: msg, error_struct: specific_error}, client}
   """
 
   alias Atex.XRPC.Client
+  alias Atex.XRPC.Error
 
   @doc """
   Perform a HTTP GET on a XRPC resource. Called a "query" in lexicons.
@@ -63,6 +72,7 @@ defmodule Atex.XRPC do
     opts = put_params(opts, query)
     output_struct = Module.concat(module, Output)
     output_exists = Code.ensure_loaded?(output_struct)
+    coerce_exists = function_exported?(module, :coerce_error, 1)
 
     case client.__struct__.get(client, module.id(), opts) do
       {:ok, %{status: 200} = response, client} ->
@@ -77,6 +87,23 @@ defmodule Atex.XRPC do
         else
           {:ok, response, client}
         end
+
+      {:ok, %{body: %{"error" => _}} = response, client} when coerce_exists ->
+        case module.coerce_error(response.body) do
+          {:ok, %Error{} = error} ->
+            {:ok, %{response | body: error}, client}
+
+          {:error, %Error{} = error} ->
+            {:error, error, client}
+        end
+
+      {:ok, %{body: %{"error" => error} = body}, client} ->
+        {:error,
+         %Error{
+           error: error,
+           message: Map.get(body, "message"),
+           error_struct: nil
+         }, client}
 
       {:ok, _, _} = ok ->
         ok
@@ -148,6 +175,7 @@ defmodule Atex.XRPC do
 
     output_struct = Module.concat(module, Output)
     output_exists = Code.ensure_loaded?(output_struct)
+    coerce_exists = function_exported?(module, :coerce_error, 1)
 
     case client.__struct__.post(client, module.id(), opts) do
       {:ok, %{status: 200} = response, client} ->
@@ -162,6 +190,23 @@ defmodule Atex.XRPC do
         else
           {:ok, response, client}
         end
+
+      {:ok, %{body: %{"error" => _}} = response, client} when coerce_exists ->
+        case module.coerce_error(response.body) do
+          {:ok, %Error{} = error} ->
+            {:ok, %{response | body: error}, client}
+
+          {:error, %Error{} = error} ->
+            {:error, error, client}
+        end
+
+      {:ok, %{body: %{"error" => error} = body}, client} ->
+        {:error,
+         %Error{
+           error: error,
+           message: Map.get(body, "message"),
+           error_struct: nil
+         }, client}
 
       {:ok, _, _} = ok ->
         ok

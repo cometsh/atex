@@ -180,4 +180,138 @@ defmodule Atex.LexiconTest do
       assert {:error, :no_matching_type} = Lexicon.Test.GetUnion.Output.from_json(%{})
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Tests: query with errors
+  # ---------------------------------------------------------------------------
+
+  describe "query with defined errors" do
+    test "generates an Errors submodule" do
+      assert Code.ensure_loaded?(Lexicon.Test.DoThing.Errors)
+    end
+
+    test "Errors submodule has error structs" do
+      assert Code.ensure_loaded?(Lexicon.Test.DoThing.Errors.SomethingBroke)
+      assert Code.ensure_loaded?(Lexicon.Test.DoThing.Errors.DoesNotCompute)
+    end
+
+    test "error structs have from_json/1" do
+      assert function_exported?(Lexicon.Test.DoThing.Errors.SomethingBroke, :from_json, 1)
+      assert function_exported?(Lexicon.Test.DoThing.Errors.DoesNotCompute, :from_json, 1)
+    end
+
+    test "error structs have error_name/0" do
+      assert Lexicon.Test.DoThing.Errors.SomethingBroke.error_name() == "SomethingBroke"
+      assert Lexicon.Test.DoThing.Errors.DoesNotCompute.error_name() == "DoesNotCompute"
+    end
+
+    test "error from_json matches error with message" do
+      assert {:ok, error} =
+               Lexicon.Test.DoThing.Errors.SomethingBroke.from_json(%{
+                 "error" => "SomethingBroke",
+                 "message" => "Database connection failed"
+               })
+
+      assert error.message == "Database connection failed"
+    end
+
+    test "error from_json matches error without message" do
+      assert {:ok, error} =
+               Lexicon.Test.DoThing.Errors.SomethingBroke.from_json(%{
+                 "error" => "SomethingBroke"
+               })
+
+      assert error.message == nil
+    end
+
+    test "error from_json returns error for non-matching error name" do
+      assert {:error, :not_this_error} =
+               Lexicon.Test.DoThing.Errors.SomethingBroke.from_json(%{
+                 "error" => "DoesNotCompute"
+               })
+    end
+
+    test "root module exports coerce_error/1" do
+      assert function_exported?(Lexicon.Test.DoThing, :coerce_error, 1)
+    end
+
+    test "coerce_error/1 matches a known error" do
+      assert {:ok, %Atex.XRPC.Error{error: "SomethingBroke", error_struct: error_struct}} =
+               Lexicon.Test.DoThing.coerce_error(%{
+                 "error" => "SomethingBroke",
+                 "message" => "It broke"
+               })
+
+      assert error_struct.__struct__.error_name() == "SomethingBroke"
+      assert error_struct.message == "It broke"
+    end
+
+    test "coerce_error/1 returns error for unknown error" do
+      assert {:error, %Atex.XRPC.Error{error: "UnknownError", error_struct: nil}} =
+               Lexicon.Test.DoThing.coerce_error(%{
+                 "error" => "UnknownError",
+                 "message" => "What happened?"
+               })
+    end
+
+    test "coerce_error/1 returns error for non-error body" do
+      assert {:error, :not_an_error} = Lexicon.Test.DoThing.coerce_error(%{"data" => "value"})
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Tests: procedure with errors
+  # ---------------------------------------------------------------------------
+
+  describe "procedure with defined errors" do
+    test "generates an Errors submodule" do
+      assert Code.ensure_loaded?(Lexicon.Test.DoOtherThing.Errors)
+    end
+
+    test "error structs have from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.DoOtherThing)
+      assert function_exported?(Lexicon.Test.DoOtherThing.Errors.ValidationFailed, :from_json, 1)
+    end
+
+    test "root module exports coerce_error/1" do
+      Code.ensure_loaded!(Lexicon.Test.DoOtherThing)
+      assert function_exported?(Lexicon.Test.DoOtherThing, :coerce_error, 1)
+    end
+
+    test "coerce_error/1 matches a known error" do
+      assert {:ok, %Atex.XRPC.Error{error: "ValidationFailed", error_struct: _}} =
+               Lexicon.Test.DoOtherThing.coerce_error(%{
+                 "error" => "ValidationFailed",
+                 "message" => "Invalid data"
+               })
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Tests: error struct JSON encoding
+  # ---------------------------------------------------------------------------
+
+  describe "error struct JSON encoding" do
+    test "encodes with message" do
+      {:ok, error_struct} =
+        Lexicon.Test.DoThing.Errors.SomethingBroke.from_json(%{
+          "error" => "SomethingBroke",
+          "message" => "Test message"
+        })
+
+      json = Jason.encode!(error_struct)
+      assert json =~ ~s("error":"SomethingBroke")
+      assert json =~ ~s("message":"Test message")
+    end
+
+    test "encodes without message" do
+      {:ok, error_struct} =
+        Lexicon.Test.DoThing.Errors.SomethingBroke.from_json(%{
+          "error" => "SomethingBroke"
+        })
+
+      json = Jason.encode!(error_struct)
+      assert json == ~s({"error":"SomethingBroke"})
+    end
+  end
 end

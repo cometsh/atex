@@ -103,19 +103,24 @@ defmodule Atex.Lexicon do
           end
 
         struct_def =
-          if schema_key == :main do
-            quoted_struct
-          else
-            nested_module_name =
-              schema_key
-              |> Recase.to_pascal()
-              |> atomise()
+          cond do
+            schema_key == :main ->
+              quoted_struct
 
-            quote do
-              defmodule unquote({:__aliases__, [alias: false], [nested_module_name]}) do
-                unquote(quoted_struct)
+            schema_key == :errors ->
+              quoted_struct
+
+            true ->
+              nested_module_name =
+                schema_key
+                |> Recase.to_pascal()
+                |> atomise()
+
+              quote do
+                defmodule unquote({:__aliases__, [alias: false], [nested_module_name]}) do
+                  unquote(quoted_struct)
+                end
               end
-            end
           end
 
         quote do
@@ -265,7 +270,7 @@ defmodule Atex.Lexicon do
             |> Map.from_struct()
             |> Enum.reject(fn {k, v} -> k in @optional_if_nil_keys && v == nil end)
             |> Enum.into(%{})
-            |> Jason.Encoder.encode(encoder)
+            |> JSON.Encoder.encode(encoder)
           end
         end
 
@@ -305,6 +310,8 @@ defmodule Atex.Lexicon do
         schema
       end
 
+    errors = build_errors_module(def[:errors])
+
     # Root struct containing `params`
     main =
       if params do
@@ -317,6 +324,8 @@ defmodule Atex.Lexicon do
           quote do
             @enforce_keys [:params]
             defstruct params: nil
+
+            unquote(coerce_error_function(errors))
           end
         }
       else
@@ -328,11 +337,13 @@ defmodule Atex.Lexicon do
           end,
           quote do
             defstruct []
+
+            unquote(coerce_error_function(errors))
           end
         }
       end
 
-    [main, params, output]
+    [main, params, output, errors]
     |> Enum.reject(&is_nil/1)
   end
 
@@ -380,6 +391,8 @@ defmodule Atex.Lexicon do
         def.input[:encoding]
       end
 
+    errors = build_errors_module(def[:errors])
+
     # Root struct containing `input`, `raw_input`, and `params`
     main =
       {
@@ -410,11 +423,15 @@ defmodule Atex.Lexicon do
           params && input ->
             quote do
               defstruct input: nil, params: nil
+
+              unquote(coerce_error_function(errors))
             end
 
           input ->
             quote do
               defstruct input: nil
+
+              unquote(coerce_error_function(errors))
             end
 
           params && raw_input_encoding ->
@@ -423,6 +440,8 @@ defmodule Atex.Lexicon do
 
               @spec content_type() :: String.t()
               def content_type, do: unquote(raw_input_encoding)
+
+              unquote(coerce_error_function(errors))
             end
 
           raw_input_encoding ->
@@ -431,21 +450,27 @@ defmodule Atex.Lexicon do
 
               @spec content_type() :: String.t()
               def content_type, do: unquote(raw_input_encoding)
+
+              unquote(coerce_error_function(errors))
             end
 
           params ->
             quote do
               defstruct raw_input: nil, params: nil
+
+              unquote(coerce_error_function(errors))
             end
 
           true ->
             quote do
               defstruct raw_input: nil
+
+              unquote(coerce_error_function(errors))
             end
         end
       }
 
-    [main, params, output, input]
+    [main, params, output, input, errors]
     |> Enum.reject(&is_nil/1)
   end
 
@@ -766,4 +791,204 @@ defmodule Atex.Lexicon do
   defp do_join_with_pipe([head]), do: [head]
   defp do_join_with_pipe([head | tail]), do: [{:|, [], [head | do_join_with_pipe(tail)]}]
   defp do_join_with_pipe([]), do: []
+
+  @spec build_errors_module(errors :: list(map()) | nil) ::
+          {atom(), term(), term(), term()} | nil
+  defp build_errors_module(errors) when errors == nil or errors == [], do: nil
+
+  defp build_errors_module(errors) do
+    error_name_atoms = Enum.map(errors, fn %{name: name} -> atomise(name) end)
+
+    error_names_type =
+      case error_name_atoms do
+        [] ->
+          quote(do: nil)
+
+        [single] ->
+          {{:., [], [{:__aliases__, [alias: false], [single]}, :t]}, [], []}
+
+        multiple ->
+          {:|, [],
+           [
+             {:|, [],
+              Enum.map(multiple, fn atom ->
+                {{:., [], [{:__aliases__, [alias: false], [atom]}, :t]}, [], []}
+              end)},
+             nil
+           ]}
+      end
+
+    error_structs =
+      Enum.map(errors, fn %{name: name} = error_def ->
+        error_name = atomise(name)
+        description = Map.get(error_def, :description)
+
+        quoted_struct =
+          quote do
+            defmodule unquote({:__aliases__, [alias: false], [error_name]}) do
+              @moduledoc false
+              @enforce_keys []
+              defstruct message: nil
+
+              @type t :: %__MODULE__{message: String.t() | nil}
+
+              @spec from_json(map()) :: {:ok, t()} | {:error, :not_this_error}
+              def from_json(%{"error" => unquote(name), "message" => msg})
+                  when is_binary(msg) or is_nil(msg) do
+                {:ok, %__MODULE__{message: msg}}
+              end
+
+              def from_json(%{"error" => unquote(name)}),
+                do: {:ok, %__MODULE__{message: nil}}
+
+              def from_json(_), do: {:error, :not_this_error}
+
+              defimpl JSON.Encoder do
+                def encode(%{mesage: message}, encoder) do
+                  %{"error" => unquote(name)}
+                  |> then(&if(message, do: Map.put(&1, "message", message), else: &1))
+                  |> JSON.Encoder.encode(encoder)
+                end
+              end
+
+              defimpl Jason.Encoder do
+                def encode(%{message: message}, options) do
+                  %{"error" => unquote(name)}
+                  |> then(&if(message, do: Map.put(&1, "message", message), else: &1))
+                  |> Jason.Encode.map(options)
+                end
+              end
+
+              unquote(if(description, do: quote(do: @doc(unquote(description))), else: nil))
+
+              def error_name, do: unquote(name)
+            end
+          end
+
+        quoted_name =
+          quote do
+            unquote(error_name)
+          end
+
+        {quoted_name, quoted_struct}
+      end)
+
+    coerce_function_body =
+      if error_name_atoms == [] do
+        quote do: nil
+      else
+        error_module_refs =
+          Enum.map(error_name_atoms, fn name ->
+            {:__aliases__, [alias: false], [name]}
+          end)
+
+        quoted_error_name_atoms =
+          Enum.map(error_name_atoms, fn name ->
+            quote do
+              unquote(name)
+            end
+          end)
+
+        quote do
+          @type error_struct :: unquote(error_names_type)
+
+          @spec coerce(map()) ::
+                  {:ok, error_struct(), String.t()} | {:error, :no_matching_error}
+          def coerce(body) when is_map(body) do
+            result =
+              Enum.find_value(unquote(error_module_refs), fn error_module ->
+                case apply(error_module, :from_json, [body]) do
+                  {:ok, _} = ok -> ok
+                  {:error, :not_this_error} -> nil
+                end
+              end)
+
+            case result do
+              {:ok, struct} ->
+                error_name =
+                  Enum.find_value(unquote(quoted_error_name_atoms), fn error_name ->
+                    error_module = Module.concat(__MODULE__, error_name)
+
+                    case error_module.from_json(body) do
+                      {:ok, _} -> error_name
+                      {:error, :not_this_error} -> nil
+                    end
+                  end)
+
+                {:ok, struct, error_name}
+
+              nil ->
+                {:error, :no_matching_error}
+            end
+          end
+
+          def coerce(_), do: {:error, :no_matching_error}
+        end
+      end
+
+    errors_module =
+      if error_name_atoms == [] do
+        nil
+      else
+        quoted_structs = Enum.map(error_structs, fn {_, quoted} -> quoted end)
+
+        quote do
+          defmodule Errors do
+            @moduledoc false
+
+            unquote_splicing(quoted_structs)
+
+            unquote(coerce_function_body)
+          end
+        end
+      end
+
+    {:errors, nil, nil, errors_module}
+  end
+
+  @spec coerce_error_function({atom(), term(), term(), term()} | nil) :: term()
+  defp coerce_error_function(nil) do
+    quote do
+      @spec coerce_error(map()) :: {:error, :no_errors_defined}
+      def coerce_error(%{}), do: {:error, :no_errors_defined}
+      def coerce_error(_), do: {:error, :no_errors_defined}
+    end
+  end
+
+  defp coerce_error_function({:errors, _, _, _}) do
+    quote do
+      @spec coerce_error(map()) ::
+              {:ok, Atex.XRPC.Error.t()} | {:error, :unknown_error | :not_an_error}
+      def coerce_error(%{"error" => _} = body) do
+        errors_module = Module.concat(__MODULE__, Errors)
+
+        case errors_module.coerce(body) do
+          {:ok, error_struct, error_name} ->
+            {:ok,
+             %Atex.XRPC.Error{
+               error: to_string(error_name),
+               message: error_struct.message,
+               error_struct: error_struct
+             }}
+
+          {:error, :no_matching_error} ->
+            error_name =
+              body
+              |> Map.take(["error", "message"])
+              |> Enum.map(fn {k, v} -> {String.to_atom(k), v} end)
+              |> Keyword.get_values(:error)
+              |> List.first()
+
+            {:error,
+             %Atex.XRPC.Error{
+               error: to_string(error_name),
+               message: Map.get(body, "message"),
+               error_struct: nil
+             }}
+        end
+      end
+
+      def coerce_error(_), do: {:error, :not_an_error}
+    end
+  end
 end

@@ -31,6 +31,12 @@ and this project adheres to
 - `/logout` route for `Atex.OAuth.Plug` to revoke the current session, as well
   as `Atex.OAuth.Plug.revoke_session/2` to revoke a conn's session
   programmaticly (e.g. from a session management dashboard).
+- `deflexicon` now generates structs for errors defined by queries and
+  procedures, under a `Errors` submodule.
+- `deflexicon` generated models now have a `coerce_error/1` function that takes
+  in a map and tries to convert it to one of its known error structs.
+- `Atex.XRPC.Error` struct for wrapping XRPC error responses, including both
+  known errors (with typed `error_struct`) and unknown errors.
 
 ### Fixed
 

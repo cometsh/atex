@@ -235,3 +235,61 @@ defmodule Lexicon.Test.GetUnion do
     }
   })
 end
+
+# Query with defined errors.
+# NSID "lexicon.test.doThing" -> Lexicon.Test.DoThing
+defmodule Lexicon.Test.DoThing do
+  @moduledoc false
+  use Atex.Lexicon
+
+  deflexicon(%{
+    "lexicon" => 1,
+    "id" => "lexicon.test.doThing",
+    "defs" => %{
+      "main" => %{
+        "type" => "query",
+        "parameters" => %{
+          "type" => "params",
+          "required" => ["arg"],
+          "properties" => %{
+            "arg" => %{"type" => "string"}
+          }
+        },
+        "errors" => [
+          %{"name" => "SomethingBroke", "description" => "Something went wrong"},
+          %{"name" => "DoesNotCompute", "description" => "Invalid input provided"}
+        ]
+      }
+    }
+  })
+end
+
+# Procedure with defined errors.
+# NSID "lexicon.test.doOtherThing" -> Lexicon.Test.DoOtherThing
+defmodule Lexicon.Test.DoOtherThing do
+  @moduledoc false
+  use Atex.Lexicon
+
+  deflexicon(%{
+    "lexicon" => 1,
+    "id" => "lexicon.test.doOtherThing",
+    "defs" => %{
+      "main" => %{
+        "type" => "procedure",
+        "input" => %{
+          "encoding" => "application/json",
+          "schema" => %{
+            "type" => "object",
+            "required" => ["data"],
+            "properties" => %{
+              "data" => %{"type" => "string"}
+            }
+          }
+        },
+        "errors" => [
+          %{"name" => "ValidationFailed"}
+        ]
+      }
+    }
+  })
+end
