@@ -196,6 +196,8 @@ defmodule Atex.LexiconTest do
     end
 
     test "error structs have from_json/1" do
+      Code.ensure_loaded!(Lexicon.Test.DoThing.Errors.SomethingBroke)
+      Code.ensure_loaded!(Lexicon.Test.DoThing.Errors.DoesNotCompute)
       assert function_exported?(Lexicon.Test.DoThing.Errors.SomethingBroke, :from_json, 1)
       assert function_exported?(Lexicon.Test.DoThing.Errors.DoesNotCompute, :from_json, 1)
     end
@@ -232,6 +234,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "root module exports coerce_error/1" do
+      Code.ensure_loaded!(Lexicon.Test.DoThing)
       assert function_exported?(Lexicon.Test.DoThing, :coerce_error, 1)
     end
 
@@ -269,7 +272,7 @@ defmodule Atex.LexiconTest do
     end
 
     test "error structs have from_json/1" do
-      Code.ensure_loaded!(Lexicon.Test.DoOtherThing)
+      Code.ensure_loaded!(Lexicon.Test.DoOtherThing.Errors.ValidationFailed)
       assert function_exported?(Lexicon.Test.DoOtherThing.Errors.ValidationFailed, :from_json, 1)
     end
 

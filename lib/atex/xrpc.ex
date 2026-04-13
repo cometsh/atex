@@ -168,10 +168,35 @@ defmodule Atex.XRPC do
   end
 
   def post(client, %{__struct__: module} = procedure, opts) do
+    has_raw_input? =
+      if raw_input = procedure.raw_input do
+        opts = Keyword.put(opts, :body, raw_input)
+
+        if Code.ensure_loaded?(module) and function_exported?(module, :content_type, 0) do
+          headers = Keyword.get(opts, :headers, [])
+          has_content_type? = Enum.any?(headers, fn {k, _} -> String.downcase(k) == "content-type" end)
+
+          unless has_content_type? do
+            raise """
+            content-type header is required when sending raw_input for #{module.id()}.
+            Expected: #{module.content_type()}
+            """
+          end
+        end
+
+        true
+      else
+        false
+      end
+
     opts =
-      opts
-      |> put_params(procedure)
-      |> put_body(procedure)
+      if has_raw_input? do
+        put_params(opts, procedure)
+      else
+        opts
+        |> put_params(procedure)
+        |> put_body(procedure)
+      end
 
     output_struct = Module.concat(module, Output)
     output_exists = Code.ensure_loaded?(output_struct)
