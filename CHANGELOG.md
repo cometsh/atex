@@ -32,6 +32,12 @@ and this project adheres to
   as `Atex.OAuth.Plug.revoke_session/2` to revoke a conn's session
   programmaticly (e.g. from a session management dashboard).
 
+### Fixed
+
+- Fix issue when trying to validate OAuth authorisation codes in localhost mode
+  on PDS implementations that are more strict than the Bluesky reference
+  implementation.
+
 ## [0.8.0] - 2026-03-29
 
 ### Breaking Changes

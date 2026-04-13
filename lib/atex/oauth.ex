@@ -362,10 +362,17 @@ defmodule Atex.OAuth do
         client_id: client_id,
         redirect_uri: redirect_uri,
         code: code,
-        code_verifier: code_verifier,
-        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-        client_assertion: client_assertion
+        code_verifier: code_verifier
       }
+
+    body =
+      if !Config.is_localhost(),
+        do:
+          Map.merge(body, %{
+            client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            client_assertion: client_assertion
+          }),
+        else: body
 
     Req.new(method: :post, url: authz_metadata.token_endpoint, form: body)
     |> send_oauth_dpop_request(dpop_key)

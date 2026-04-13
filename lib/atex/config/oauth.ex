@@ -40,6 +40,14 @@ defmodule Atex.Config.OAuth do
   end
 
   @doc """
+  Returns whether OAuth should be put into the localhost loopback mode.
+  """
+  @spec is_localhost() :: boolean()
+  def is_localhost() do
+    Keyword.get(Application.get_env(:atex, Atex.OAuth, []), :is_localhost, false)
+  end
+
+  @doc """
   Returns the client ID based on configuration.
 
   If `is_localhost` is set, it'll be a string handling the "http://localhost"
@@ -48,9 +56,7 @@ defmodule Atex.Config.OAuth do
   """
   @spec client_id() :: String.t()
   def client_id() do
-    is_localhost = Keyword.get(Application.get_env(:atex, Atex.OAuth, []), :is_localhost, false)
-
-    if is_localhost do
+    if is_localhost() do
       query =
         %{redirect_uri: redirect_uri(), scope: scopes()}
         |> URI.encode_query()
