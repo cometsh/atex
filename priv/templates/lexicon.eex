@@ -1,4 +1,4 @@
-defmodule <%= Atex.NSID.to_atom(lexicon["id"], false) %> do
+defmodule <%= lexicon.id |> Atex.NSID.new!() |> Atex.NSID.to_atom(false) %> do
   @moduledoc false
   use Atex.Lexicon
 

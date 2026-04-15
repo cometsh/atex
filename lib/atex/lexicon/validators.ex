@@ -99,8 +99,7 @@ defmodule Atex.Lexicon.Validators do
   @spec strings_to_re(list(String.t())) :: Regex.t()
   defp strings_to_re(strings) do
     strings
-    |> Enum.map(&String.replace(&1, "*", ".+"))
-    |> Enum.join("|")
+    |> Enum.map_join("|", &String.replace(&1, "*", ".+"))
     |> then(&~r/^(#{&1})$/)
   end
 end

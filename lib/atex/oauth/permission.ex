@@ -268,8 +268,7 @@ defmodule Atex.OAuth.Permission do
 
   defp stringify_parameters(params) do
     params
-    |> Enum.map(fn {key, value} -> "#{key}=#{encode_param_value(value)}" end)
-    |> Enum.join("&")
+    |> Enum.map_join("&", fn {key, value} -> "#{key}=#{encode_param_value(value)}" end)
     |> then(&"?#{&1}")
   end
 
@@ -352,7 +351,7 @@ defmodule Atex.OAuth.Permission do
         struct = %__MODULE__{
           resource: "account",
           positional: Atom.to_string(attr),
-          parameters: if(!is_nil(action), do: [{"action", Atom.to_string(action)}], else: [])
+          parameters: if(action != nil, do: [{"action", Atom.to_string(action)}], else: [])
         }
 
         if as_string, do: to_string(struct), else: struct
@@ -792,7 +791,7 @@ defmodule Atex.OAuth.Permission do
     aud = Keyword.get(opts, :aud)
     as_string = Keyword.get(opts, :as_string)
 
-    parameters = if !is_nil(aud), do: [{"aud", aud}], else: []
+    parameters = if aud != nil, do: [{"aud", aud}], else: []
 
     struct = %__MODULE__{
       resource: "include",

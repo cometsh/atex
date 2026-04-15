@@ -103,7 +103,7 @@ defmodule Atex.Repo.FixturesTest do
 
     test "list_record_keys returns rkeys for a collection", %{repo: repo} do
       {:ok, keys} = Repo.list_record_keys(repo, "app.bsky.feed.post")
-      assert length(keys) > 0
+      assert keys != []
       assert Enum.all?(keys, &is_binary/1)
       assert keys == Enum.sort(keys)
     end

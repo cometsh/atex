@@ -366,13 +366,13 @@ defmodule Atex.OAuth do
       }
 
     body =
-      if !Config.is_localhost(),
-        do:
+      if Config.is_localhost(),
+        do: body,
+        else:
           Map.merge(body, %{
             client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
             client_assertion: client_assertion
-          }),
-        else: body
+          })
 
     Req.new(method: :post, url: authz_metadata.token_endpoint, form: body)
     |> send_oauth_dpop_request(dpop_key)
@@ -620,7 +620,6 @@ defmodule Atex.OAuth do
                 {:ok, body, dpop_nonce}
 
               {:ok, %{body: %{"error" => error, "error_description" => error_description}}} ->
-                IO.inspect(request)
                 {:error, {:oauth_error, error, error_description}, dpop_nonce}
 
               {:ok, _} ->
@@ -631,8 +630,6 @@ defmodule Atex.OAuth do
             end
 
           true ->
-            IO.inspect(request)
-
             {:error, {:oauth_error, resp.body["error"], resp.body["error_description"]},
              dpop_nonce}
         end

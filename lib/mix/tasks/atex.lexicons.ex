@@ -51,7 +51,7 @@ defmodule Mix.Tasks.Atex.Lexicons do
     output = Keyword.get(options, :output, "lib/atproto")
     paths = Enum.flat_map(globs, &Path.wildcard/1)
 
-    if length(paths) == 0 do
+    if paths == [] do
       Mix.shell().error("No valid search paths have been provided, aborting.")
     else
       Mix.shell().info("Generating modules for lexicons into #{output}")
@@ -63,21 +63,18 @@ defmodule Mix.Tasks.Atex.Lexicons do
     end
   end
 
-  # TODO: validate schema?
   defp generate(input, output) do
     lexicon =
       input
       |> File.read!()
       |> JSON.decode!()
-
-    if not is_binary(lexicon["id"]) do
-      raise ArgumentError, message: "Malformed lexicon: does not have an `id` field."
-    end
+      |> Recase.Enumerable.atomize_keys()
+      |> Atex.Lexicon.Schema.lexicon!()
 
     code = lexicon |> template() |> Code.format_string!() |> Enum.join("")
 
     file_path =
-      lexicon["id"]
+      lexicon.id
       |> String.split(".")
       |> Enum.join("/")
       |> then(&(&1 <> ".ex"))

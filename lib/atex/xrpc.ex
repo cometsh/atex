@@ -174,7 +174,9 @@ defmodule Atex.XRPC do
 
         if Code.ensure_loaded?(module) and function_exported?(module, :content_type, 0) do
           headers = Keyword.get(opts, :headers, [])
-          has_content_type? = Enum.any?(headers, fn {k, _} -> String.downcase(k) == "content-type" end)
+
+          has_content_type? =
+            Enum.any?(headers, fn {k, _} -> String.downcase(k) == "content-type" end)
 
           unless has_content_type? do
             raise """

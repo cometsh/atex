@@ -268,9 +268,7 @@ defmodule Atex.OAuth.Plug do
           message: "OAuth issuer does not match PDS' authorization server",
           reason: :issuer_mismatch
 
-      err ->
-        IO.inspect(err)
-
+      _err ->
         raise Atex.OAuth.Error,
           message: "Failed to validate authorization code or token",
           reason: :token_validation_failed

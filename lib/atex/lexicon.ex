@@ -171,7 +171,6 @@ defmodule Atex.Lexicon do
     def_to_schema(nsid, def_name, record)
   end
 
-  # TODO: add struct to types
   defp def_to_schema(
          nsid,
          def_name,
@@ -290,7 +289,6 @@ defmodule Atex.Lexicon do
     [{atomise(def_name), {:%{}, [], quoted_schemas}, {:%{}, [], quoted_types}, quoted_struct}]
   end
 
-  # TODO: validating errors?
   defp def_to_schema(nsid, _def_name, %{type: "query"} = def) do
     params =
       if def[:parameters] do

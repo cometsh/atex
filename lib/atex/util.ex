@@ -79,8 +79,7 @@ defmodule Atex.Util do
 
   defp format_ipv6({a, b, c, d, e, f, g, h}) when is_ipv6(a, b, c, d, e, f, g, h) do
     [a, b, c, d, e, f, g, h]
-    |> Enum.map(&Integer.to_string(&1, 16))
-    |> Enum.join(":")
+    |> Enum.map_join(":", &Integer.to_string(&1, 16))
     |> String.downcase()
   end
 end

@@ -31,7 +31,7 @@ defmodule Atex.Crypto do
   @p256_a @p256_p - 3
   @p256_b 0x5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B
   @p256_n 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551
-  @p256_oid {1, 2, 840, 10045, 3, 1, 7}
+  @p256_oid {1, 2, 840, 10_045, 3, 1, 7}
 
   # secp256k1
   @k256_p 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
@@ -398,18 +398,20 @@ defmodule Atex.Crypto do
   # If s > n/2, replace s with n - s and re-encode the DER sequence.
   @spec normalize_low_s(binary(), pos_integer()) :: binary()
   defp normalize_low_s(der_sig, curve_order) do
-    with {:ok, r_bin, s_bin} <- parse_der_ecdsa(der_sig) do
-      s = :binary.decode_unsigned(s_bin)
+    case parse_der_ecdsa(der_sig) do
+      {:ok, r_bin, s_bin} ->
+        s = :binary.decode_unsigned(s_bin)
 
-      if s <= div(curve_order, 2) do
+        if s <= div(curve_order, 2) do
+          der_sig
+        else
+          new_s = curve_order - s
+          new_s_bin = :binary.encode_unsigned(new_s)
+          encode_der_ecdsa(r_bin, new_s_bin)
+        end
+
+      _ ->
         der_sig
-      else
-        new_s = curve_order - s
-        new_s_bin = :binary.encode_unsigned(new_s)
-        encode_der_ecdsa(r_bin, new_s_bin)
-      end
-    else
-      _ -> der_sig
     end
   end
 

@@ -1,10 +1,4 @@
 defmodule Atex.IdentityResolver.Cache do
-  # TODO: need the following:
-  # did -> handle mapping
-  # handle -> did mapping
-  # did -> document mapping?
-  # User should be able to call a single function to fetch all info for either did and handle, including the link between them.
-  # Need some sort of TTL so that we can refresh as necessary
   alias Atex.IdentityResolver.Identity
 
   @cache Application.compile_env(:atex, :identity_cache, Atex.IdentityResolver.Cache.ETS)
