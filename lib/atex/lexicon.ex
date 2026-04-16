@@ -806,14 +806,11 @@ defmodule Atex.Lexicon do
           {{:., [], [{:__aliases__, [alias: false], [single]}, :t]}, [], []}
 
         multiple ->
-          {:|, [],
-           [
-             {:|, [],
-              Enum.map(multiple, fn atom ->
-                {{:., [], [{:__aliases__, [alias: false], [atom]}, :t]}, [], []}
-              end)},
-             nil
-           ]}
+          multiple
+          |> Enum.map(fn atom ->
+            {{:., [], [{:__aliases__, [alias: false], [atom]}, :t]}, [], []}
+          end)
+          |> then(&join_with_pipe(&1 ++ [nil]))
       end
 
     error_structs =
