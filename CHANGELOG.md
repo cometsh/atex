@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!--## [Unreleased]-->
+## [Unreleased]
+
+- Fix `raw_input` not actually being set as the request's body in
+  `Atex.XRPC.post/3` when providing a struct as input.
 
 ## [0.9.1] - 2026-04-17
 

@@ -169,9 +169,7 @@ defmodule Atex.XRPC do
 
   def post(client, %{__struct__: module} = procedure, opts) do
     has_raw_input? =
-      if raw_input = procedure.raw_input do
-        opts = Keyword.put(opts, :body, raw_input)
-
+      if procedure.raw_input do
         if Code.ensure_loaded?(module) and function_exported?(module, :content_type, 0) do
           headers = Keyword.get(opts, :headers, [])
 
@@ -193,7 +191,9 @@ defmodule Atex.XRPC do
 
     opts =
       if has_raw_input? do
-        put_params(opts, procedure)
+        opts
+        |> put_params(procedure)
+        |> Keyword.put(:body, procedure.raw_input)
       else
         opts
         |> put_params(procedure)
