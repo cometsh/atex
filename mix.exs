@@ -1,7 +1,7 @@
 defmodule Atex.MixProject do
   use Mix.Project
 
-  @version "0.9.0"
+  @version "0.9.1"
   @github "https://github.com/cometsh/atex"
   @tangled "https://tangled.org/@comet.sh/atex"
 
