@@ -168,37 +168,27 @@ defmodule Atex.XRPC do
   end
 
   def post(client, %{__struct__: module} = procedure, opts) do
-    has_raw_input? =
-      if procedure.raw_input do
-        if Code.ensure_loaded?(module) and function_exported?(module, :content_type, 0) do
-          headers = Keyword.get(opts, :headers, [])
+    # Require content-type header if `raw_input` is passed.
+    if match?(%{raw_input: _body}, procedure) do
+      if Code.ensure_loaded?(module) and function_exported?(module, :content_type, 0) do
+        headers = Keyword.get(opts, :headers, [])
 
-          has_content_type? =
-            Enum.any?(headers, fn {k, _} -> String.downcase(k) == "content-type" end)
+        has_content_type? =
+          Enum.any?(headers, fn {k, _} -> String.downcase(k) == "content-type" end)
 
-          unless has_content_type? do
-            raise """
-            content-type header is required when sending raw_input for #{module.id()}.
-            Expected: #{module.content_type()}
-            """
-          end
+        unless has_content_type? do
+          raise """
+          content-type header is required when sending raw_input for #{module.id()}.
+          Expected: #{module.content_type()}
+          """
         end
-
-        true
-      else
-        false
       end
+    end
 
     opts =
-      if has_raw_input? do
-        opts
-        |> put_params(procedure)
-        |> Keyword.put(:body, procedure.raw_input)
-      else
-        opts
-        |> put_params(procedure)
-        |> put_body(procedure)
-      end
+      opts
+      |> put_params(procedure)
+      |> put_body(procedure)
 
     output_struct = Module.concat(module, Output)
     output_exists = Code.ensure_loaded?(output_struct)
