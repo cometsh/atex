@@ -70,47 +70,9 @@ defmodule Atex.XRPC do
 
   def get(client, %{__struct__: module} = query, opts) do
     opts = put_params(opts, query)
-    output_struct = Module.concat(module, Output)
-    output_exists = Code.ensure_loaded?(output_struct)
-    coerce_exists = function_exported?(module, :coerce_error, 1)
 
-    case client.__struct__.get(client, module.id(), opts) do
-      {:ok, %{status: 200} = response, client} ->
-        if output_exists do
-          case output_struct.from_json(response.body) do
-            {:ok, output} ->
-              {:ok, %{response | body: output}, client}
-
-            err ->
-              err
-          end
-        else
-          {:ok, response, client}
-        end
-
-      {:ok, %{body: %{"error" => _}} = response, client} when coerce_exists ->
-        case module.coerce_error(response.body) do
-          {:ok, %Error{} = error} ->
-            {:ok, %{response | body: error}, client}
-
-          {:error, %Error{} = error} ->
-            {:error, error, client}
-        end
-
-      {:ok, %{body: %{"error" => error} = body}, client} ->
-        {:error,
-         %Error{
-           error: error,
-           message: Map.get(body, "message"),
-           error_struct: nil
-         }, client}
-
-      {:ok, _, _} = ok ->
-        ok
-
-      err ->
-        err
-    end
+    client.__struct__.get(client, module.id(), opts)
+    |> handle_lexicon_response(module)
   end
 
   @doc """
@@ -190,47 +152,8 @@ defmodule Atex.XRPC do
       |> put_params(procedure)
       |> put_body(procedure)
 
-    output_struct = Module.concat(module, Output)
-    output_exists = Code.ensure_loaded?(output_struct)
-    coerce_exists = function_exported?(module, :coerce_error, 1)
-
-    case client.__struct__.post(client, module.id(), opts) do
-      {:ok, %{status: 200} = response, client} ->
-        if output_exists do
-          case output_struct.from_json(response.body) do
-            {:ok, output} ->
-              {:ok, %{response | body: output}, client}
-
-            err ->
-              err
-          end
-        else
-          {:ok, response, client}
-        end
-
-      {:ok, %{body: %{"error" => _}} = response, client} when coerce_exists ->
-        case module.coerce_error(response.body) do
-          {:ok, %Error{} = error} ->
-            {:ok, %{response | body: error}, client}
-
-          {:error, %Error{} = error} ->
-            {:error, error, client}
-        end
-
-      {:ok, %{body: %{"error" => error} = body}, client} ->
-        {:error,
-         %Error{
-           error: error,
-           message: Map.get(body, "message"),
-           error_struct: nil
-         }, client}
-
-      {:ok, _, _} = ok ->
-        ok
-
-      err ->
-        err
-    end
+    client.__struct__.post(client, module.id(), opts)
+    |> handle_lexicon_response(module)
   end
 
   @doc """
@@ -272,4 +195,51 @@ defmodule Atex.XRPC do
   defp put_body(keyword, %{input: json}), do: Keyword.put(keyword, :json, json)
   defp put_body(keyword, %{raw_input: body}), do: Keyword.put(keyword, :body, body)
   defp put_body(keyword, _), do: keyword
+
+  @spec handle_lexicon_response(
+          {:ok, Req.Response.t(), Client.client()}
+          | {:error, any(), Client.client()}
+          | {:error, any()},
+          module()
+        ) ::
+          {:ok, Req.Response.t(), Client.client()}
+          | {:error, any(), Client.client()}
+          | {:error, any()}
+  defp handle_lexicon_response(result, module) do
+    output_struct = Module.concat(module, Output)
+    output_exists = Code.ensure_loaded?(output_struct)
+    coerce_exists = function_exported?(module, :coerce_error, 1)
+
+    case result do
+      {:ok, %{status: 200} = response, client} ->
+        if output_exists do
+          case output_struct.from_json(response.body) do
+            {:ok, output} -> {:ok, %{response | body: output}, client}
+            err -> err
+          end
+        else
+          {:ok, response, client}
+        end
+
+      {:ok, %{body: %{"error" => _}} = response, client} when coerce_exists ->
+        case module.coerce_error(response.body) do
+          {:ok, %Error{} = error} -> {:ok, %{response | body: error}, client}
+          {:error, %Error{} = error} -> {:error, error, client}
+        end
+
+      {:ok, %{body: %{"error" => error} = body}, client} ->
+        {:error,
+         %Error{
+           error: error,
+           message: Map.get(body, "message"),
+           error_struct: nil
+         }, client}
+
+      {:ok, _, _} = ok ->
+        ok
+
+      err ->
+        err
+    end
+  end
 end
