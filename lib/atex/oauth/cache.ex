@@ -38,7 +38,7 @@ defmodule Atex.OAuth.Cache do
         {ConCache,
          [
            name: @authz_metadata_cache,
-           ttl_check_interval: :timer.seconds(30),
+           ttl_check_interval: :timer.minutes(5),
            global_ttl: @ttl_ms
          ]},
         id: :authz_metadata_cache
