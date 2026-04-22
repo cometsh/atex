@@ -1,4 +1,17 @@
 defmodule Atex.XRPC.LoginClient do
+  @moduledoc """
+  Password/app-password based XRPC client for AT Protocol.
+
+  Creates a session via `com.atproto.server.createSession` and handles automatic
+  token refresh on 401 responses. For OAuth-based authentication, see
+  `Atex.XRPC.OAuthClient`.
+
+  ## Examples
+
+      {:ok, client} = Atex.XRPC.LoginClient.login("https://bsky.social", "user.bsky.social", "password")
+      {:ok, response, client} = Atex.XRPC.get(client, "app.bsky.actor.getProfile", params: [actor: "user.bsky.social"])
+  """
+
   alias Atex.XRPC
   use TypedStruct
 
@@ -112,14 +125,14 @@ defmodule Atex.XRPC.LoginClient do
   end
 
   @spec handle_failure(t(), Req.Response.t(), Req.Request.t()) ::
-          {:ok, Req.Response.t(), t()} | {:error, any()}
+          {:ok, Req.Response.t(), t()} | {:error, any(), t()}
   defp handle_failure(client, response, request) do
-    if auth_error?(response.body) and client.refresh_token do
+    if auth_error?(response) and client.refresh_token do
       case refresh(client) do
         {:ok, client} ->
           case Req.request(put_auth(request, client.access_token)) do
             {:ok, %{status: 200} = response} -> {:ok, response, client}
-            {:ok, response} -> {:error, response}
+            {:ok, response} -> {:error, response, client}
             err -> err
           end
 
@@ -127,7 +140,7 @@ defmodule Atex.XRPC.LoginClient do
           err
       end
     else
-      {:error, response}
+      {:error, response, client}
     end
   end
 
@@ -135,7 +148,7 @@ defmodule Atex.XRPC.LoginClient do
   defp validate_client(%__MODULE__{access_token: nil}), do: {:error, :no_token}
   defp validate_client(%__MODULE__{} = client), do: {:ok, client}
 
-  @spec auth_error?(body :: Req.Response.t()) :: boolean()
+  @spec auth_error?(Req.Response.t()) :: boolean()
   defp auth_error?(%{status: status}) when status in [401, 403], do: true
   defp auth_error?(%{body: %{"error" => "InvalidToken"}}), do: true
   defp auth_error?(_response), do: false
