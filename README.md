@@ -26,6 +26,17 @@ Looking to use a data subscription service like the Firehose, [Jetstream], or
 [Tap]: https://github.com/bluesky-social/indigo/blob/main/cmd/tap/README.md
 [Drinkup]: https://tangled.org/comet.sh/drinkup
 
+## Pre-built lexicon packages
+
+The following packages provide sets of AT Protocol lexicons pre-transpiled with
+`deflexicon`, ready to use without running the code generator yourself:
+
+- [atex_atproto](https://github.com/cometsh/atex_atproto) - core AT Protocol
+  lexicons
+- [atex_bsky](https://github.com/cometsh/atex_bsky) - Bluesky lexicons
+- [atex_standard_site](https://github.com/cometsh/atex_standard_site) - Standard
+  Site lexicons
+
 ## Installation
 
 Get atex from [hex.pm](https://hex.pm) by adding it to your `mix.exs`:
