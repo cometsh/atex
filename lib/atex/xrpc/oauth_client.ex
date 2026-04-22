@@ -26,6 +26,7 @@ defmodule Atex.XRPC.OAuthClient do
   """
 
   alias Atex.OAuth
+  alias Atex.OAuth.{Discovery, DPoP, Flow}
   use TypedStruct
 
   @behaviour Atex.XRPC.Client
@@ -143,10 +144,10 @@ defmodule Atex.XRPC.OAuthClient do
   @spec do_refresh(t()) :: {:ok, OAuth.Session.t()} | {:error, any()}
   defp do_refresh(%__MODULE__{session_key: session_key}) do
     with {:ok, session} <- OAuth.SessionStore.get(session_key),
-         {:ok, authz_server} <- OAuth.get_authorization_server(session.aud),
+         {:ok, authz_server} <- Discovery.get_authorization_server(session.aud),
          {:ok, %{token_endpoint: token_endpoint}} <-
-           OAuth.get_authorization_server_metadata(authz_server) do
-      case OAuth.refresh_token(
+           Discovery.get_authorization_server_metadata(authz_server) do
+      case Flow.refresh_token(
              session.refresh_token,
              session.dpop_key,
              session.iss,
@@ -227,7 +228,7 @@ defmodule Atex.XRPC.OAuthClient do
             |> Req.new()
             |> Req.Request.put_header("authorization", "DPoP #{session.access_token}")
 
-          case OAuth.request_protected_dpop_resource(
+          case DPoP.request_protected_dpop_resource(
                  request,
                  session.iss,
                  session.access_token,
@@ -264,7 +265,7 @@ defmodule Atex.XRPC.OAuthClient do
     if auth_error?(response) do
       case do_refresh(client) do
         {:ok, session} ->
-          case OAuth.request_protected_dpop_resource(
+          case DPoP.request_protected_dpop_resource(
                  request,
                  session.iss,
                  session.access_token,

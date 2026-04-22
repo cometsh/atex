@@ -115,10 +115,9 @@ defmodule Atex.OAuth.Plug do
   use Plug.Router
   require Plug.Router
   alias Atex.{DID, IdentityResolver, OAuth}
+  alias Atex.OAuth.{Discovery, Flow}
 
   @oauth_cookie_opts [path: "/", http_only: true, secure: true, same_site: "lax", max_age: 600]
-  @session_keys_name :atex_sessions
-  @session_active_name :atex_active_session
 
   def init(opts) do
     callback = Keyword.get(opts, :callback, nil)
@@ -158,12 +157,12 @@ defmodule Atex.OAuth.Plug do
     case IdentityResolver.resolve(handle) do
       {:ok, identity} ->
         pds = DID.Document.get_pds_endpoint(identity.document)
-        {:ok, authz_server} = OAuth.get_authorization_server(pds)
-        {:ok, authz_metadata} = OAuth.get_authorization_server_metadata(authz_server)
+        {:ok, authz_server} = Discovery.get_authorization_server(pds)
+        {:ok, authz_metadata} = Discovery.get_authorization_server_metadata(authz_server)
         state = OAuth.create_nonce()
         code_verifier = OAuth.create_nonce()
 
-        case OAuth.create_authorization_url(
+        case Flow.create_authorization_url(
                authz_metadata,
                state,
                code_verifier,
@@ -191,7 +190,7 @@ defmodule Atex.OAuth.Plug do
   get "/client-metadata.json" do
     conn
     |> put_resp_content_type("application/json")
-    |> send_resp(200, JSON.encode_to_iodata!(OAuth.create_client_metadata()))
+    |> send_resp(200, JSON.encode_to_iodata!(Flow.create_client_metadata()))
   end
 
   get "/callback" do
@@ -212,10 +211,10 @@ defmodule Atex.OAuth.Plug do
         reason: :invalid_callback_request
     end
 
-    with {:ok, authz_metadata} <- OAuth.get_authorization_server_metadata(stored_issuer),
+    with {:ok, authz_metadata} <- Discovery.get_authorization_server_metadata(stored_issuer),
          dpop_key <- JOSE.JWK.generate_key({:ec, "P-256"}),
          {:ok, tokens, dpop_nonce} <-
-           OAuth.validate_authorization_code(
+           Flow.validate_authorization_code(
              authz_metadata,
              dpop_key,
              code,
@@ -224,7 +223,7 @@ defmodule Atex.OAuth.Plug do
          {:ok, identity} <- IdentityResolver.resolve(tokens.did),
          # Make sure pds' issuer matches the stored one (just in case)
          pds <- DID.Document.get_pds_endpoint(identity.document),
-         {:ok, authz_server} <- OAuth.get_authorization_server(pds),
+         {:ok, authz_server} <- Discovery.get_authorization_server(pds),
          true <- authz_server == stored_issuer do
       device_nonce = OAuth.create_nonce()
 
@@ -244,15 +243,15 @@ defmodule Atex.OAuth.Plug do
 
       case OAuth.SessionStore.insert(session) do
         :ok ->
-          existing_keys = get_session(conn, @session_keys_name) || []
+          existing_keys = get_session(conn, OAuth.session_keys_name()) || []
 
           conn =
             conn
             |> delete_resp_cookie("state", @oauth_cookie_opts)
             |> delete_resp_cookie("code_verifier", @oauth_cookie_opts)
             |> delete_resp_cookie("issuer", @oauth_cookie_opts)
-            |> put_session(@session_keys_name, [session_key | existing_keys])
-            |> put_session(@session_active_name, session_key)
+            |> put_session(OAuth.session_keys_name(), [session_key | existing_keys])
+            |> put_session(OAuth.session_active_session_name(), session_key)
 
           {mod, func, args} = callback
           apply(mod, func, [conn | args])
@@ -327,8 +326,8 @@ defmodule Atex.OAuth.Plug do
   def revoke_session(%Plug.Conn{} = conn, session_key) do
     case OAuth.delete_session(session_key) do
       :ok ->
-        session_keys = get_session(conn, @session_keys_name) || []
-        active_key = get_session(conn, @session_active_name)
+        session_keys = get_session(conn, OAuth.session_keys_name()) || []
+        active_key = get_session(conn, OAuth.session_active_session_name())
 
         session_keys = List.delete(session_keys, session_key)
 
@@ -337,10 +336,10 @@ defmodule Atex.OAuth.Plug do
             new_active = List.first(session_keys)
 
             conn
-            |> put_session(@session_active_name, new_active)
-            |> put_session(@session_keys_name, session_keys)
+            |> put_session(OAuth.session_active_session_name(), new_active)
+            |> put_session(OAuth.session_keys_name(), session_keys)
           else
-            put_session(conn, @session_keys_name, session_keys)
+            put_session(conn, OAuth.session_keys_name(), session_keys)
           end
 
         {:ok, conn}

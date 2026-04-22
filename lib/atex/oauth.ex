@@ -1,841 +1,126 @@
 defmodule Atex.OAuth do
   @moduledoc """
-  OAuth 2.0 implementation for AT Protocol authentication.
+  AT Protocol OAuth 2.0 session management.
 
-  This module provides utilities for implementing OAuth flows compliant with the
-  AT Protocol specification. It includes support for:
+  Provides Plug session helpers for managing OAuth sessions in a web application.
+  For the full OAuth flow, see `Atex.OAuth.Flow`. For authorization server
+  discovery, see `Atex.OAuth.Discovery`. For DPoP token handling, see
+  `Atex.OAuth.DPoP`.
 
-  - Pushed Authorization Requests (PAR)
-  - DPoP (Demonstration of Proof of Possession) tokens
-  - JWT client assertions
-  - PKCE (Proof Key for Code Exchange)
-  - Token refresh
-  - Handle to PDS resolution
+  ## Type re-exports
 
-  ## Configuration
+  The following types are re-exported here for backward compatibility:
 
-  See `Atex.Config.OAuth` module for configuration documentation.
-
-  ## Usage Example
-
-      iex> pds = "https://bsky.social"
-      iex> login_hint = "example.com"
-      iex> {:ok, authz_server} = Atex.OAuth.get_authorization_server(pds)
-      iex> {:ok, authz_metadata} = Atex.OAuth.get_authorization_server_metadata(authz_server)
-      iex> state = Atex.OAuth.create_nonce()
-      iex> code_verifier = Atex.OAuth.create_nonce()
-      iex> {:ok, auth_url} = Atex.OAuth.create_authorization_url(
-        authz_metadata,
-        state,
-        code_verifier,
-        login_hint
-      )
+  - `t:Atex.OAuth.Flow.authorization_metadata/0`
+  - `t:Atex.OAuth.Flow.tokens/0`
   """
 
-  @type authorization_metadata() :: %{
-          issuer: String.t(),
-          par_endpoint: String.t(),
-          token_endpoint: String.t(),
-          authorization_endpoint: String.t(),
-          revocation_endpoint: String.t()
-        }
+  alias Atex.OAuth.SessionStore
 
-  @type tokens() :: %{
-          access_token: String.t(),
-          refresh_token: String.t(),
-          did: String.t(),
-          expires_at: NaiveDateTime.t()
-        }
-
-  @type create_client_metadata_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:extra_redirect_uris, list(String.t())}
-          | {:scopes, String.t()}
-
-  @type create_authorization_url_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:scopes, String.t()}
-
-  @type validate_authorization_code_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:scopes, String.t()}
-
-  @type refresh_token_option ::
-          {:key, JOSE.JWK.t()}
-          | {:client_id, String.t()}
-          | {:redirect_uri, String.t()}
-          | {:scopes, String.t()}
-
-  require Logger
-
-  alias Atex.Config.OAuth, as: Config
-  alias Atex.OAuth.{Session, SessionStore}
+  @type authorization_metadata() :: Atex.OAuth.Flow.authorization_metadata()
+  @type tokens() :: Atex.OAuth.Flow.tokens()
 
   @session_keys_name :atex_sessions
   @session_active_name :atex_active_session
 
   @doc """
-  Returns the composite session key (`"<did>:<nonce>"`) for the currently active
-  OAuth session on the given conn.
+  Return the session key atom used to store the list of session keys in a
+  `Plug.Conn` session.
 
-  This is the primary way to identify which session is active for a request. The
-  returned key can be passed directly to `Atex.OAuth.SessionStore.get/1` or used
-  to construct an `Atex.XRPC.OAuthClient`.
+  Used by `Atex.OAuth.Plug` when reading and writing session data.
+  """
+  @spec session_keys_name() :: atom()
+  def session_keys_name, do: @session_keys_name
 
-  ## Returns
+  @doc """
+  Return the session key atom used to store the active session key in a
+  `Plug.Conn` session.
 
-  - `{:ok, session_key}` - The composite key for the active session
-  - `:error` - No active session found in the conn
+  Used by `Atex.OAuth.Plug` when reading and writing session data.
+  """
+  @spec session_active_session_name() :: atom()
+  def session_active_session_name, do: @session_active_name
+
+  @doc """
+  Generate a random base64url-encoded nonce suitable for use in OAuth flows.
+
+  Returns a 32-byte random value encoded as a URL-safe base64 string without
+  padding. Useful when building custom authorization flows.
 
   ## Examples
 
-      case Atex.OAuth.current_session_key(conn) do
-        {:ok, key} -> {:ok, client} = Atex.XRPC.OAuthClient.new(key)
-        :error -> redirect_to_login(conn)
-      end
-
+      iex> nonce = Atex.OAuth.create_nonce()
+      iex> is_binary(nonce)
+      true
   """
-  @spec current_session_key(Plug.Conn.t()) :: {:ok, String.t()} | :error
-  def current_session_key(%Plug.Conn{} = conn) do
-    case Plug.Conn.get_session(conn, @session_active_name) do
-      key when is_binary(key) -> {:ok, key}
-      _ -> :error
-    end
+  @spec create_nonce() :: String.t()
+  def create_nonce do
+    :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
   end
 
   @doc """
-  Returns all composite session keys stored for this device's conn session.
+  Get the key of the currently active OAuth session from the connection.
 
-  Each key corresponds to a distinct authenticated account on this device. The
-  list is ordered with the most recently logged-in account first.
+  Returns `nil` if no session is currently active.
 
-  ## Examples
+  ## Parameters
 
-      keys = Atex.OAuth.list_session_keys(conn)
-      # => ["did:plc:abc:nonce1", "did:plc:xyz:nonce2"]
-
+  - `conn` - A `Plug.Conn` with session data loaded
   """
-  @spec list_session_keys(Plug.Conn.t()) :: [String.t()]
-  def list_session_keys(%Plug.Conn{} = conn) do
+  @spec current_session_key(Plug.Conn.t()) :: String.t() | nil
+  def current_session_key(conn) do
+    Plug.Conn.get_session(conn, @session_active_name)
+  end
+
+  @doc """
+  List all OAuth session keys stored in the connection's session.
+
+  ## Parameters
+
+  - `conn` - A `Plug.Conn` with session data loaded
+  """
+  @spec list_session_keys(Plug.Conn.t()) :: list(String.t())
+  def list_session_keys(conn) do
     Plug.Conn.get_session(conn, @session_keys_name) || []
   end
 
   @doc """
-  Switches the active session to the given composite session key.
+  Switch the active OAuth session to the given key.
 
-  Validates that the key is present in the conn's session list and that the
-  corresponding session still exists in the store before updating the conn.
-
-  ## Returns
-
-  - `{:ok, conn}` - Active session switched; the returned conn has the updated
-    session and should be used for subsequent operations
-  - `{:error, :not_found}` - The key is not in the session list or the session
-    no longer exists in the store
-
-  ## Examples
-
-      case Atex.OAuth.switch_session(conn, "did:plc:xyz:nonce2") do
-        {:ok, conn} -> send_resp(conn, 200, "Switched accounts")
-        {:error, :not_found} -> send_resp(conn, 404, "Session not found")
-      end
-
-  """
-  @spec switch_session(Plug.Conn.t(), String.t()) :: {:ok, Plug.Conn.t()} | {:error, :not_found}
-  def switch_session(%Plug.Conn{} = conn, session_key) when is_binary(session_key) do
-    stored_keys = list_session_keys(conn)
-
-    with true <- session_key in stored_keys,
-         {:ok, _session} <- Atex.OAuth.SessionStore.get(session_key) do
-      {:ok, Plug.Conn.put_session(conn, @session_active_name, session_key)}
-    else
-      _ -> {:error, :not_found}
-    end
-  end
-
-  @doc """
-  Get a map containing the client metadata information needed for an
-  authorization server to validate this client.
-  """
-  @spec create_client_metadata(list(create_client_metadata_option())) :: map()
-  def create_client_metadata(opts \\ []) do
-    opts =
-      Keyword.validate!(
-        opts,
-        [:key, :client_id, :redirect_uri, :extra_redirect_uris, :scopes]
-      )
-
-    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
-    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
-
-    extra_redirect_uris =
-      Keyword.get_lazy(opts, :extra_redirect_uris, &Config.extra_redirect_uris/0)
-
-    scopes = Keyword.get_lazy(opts, :scopes, &Config.scopes/0)
-
-    {_, jwk} = key |> JOSE.JWK.to_public_map()
-    jwk = Map.merge(jwk, %{use: "sig", kid: key.fields["kid"]})
-
-    %{
-      client_id: client_id,
-      redirect_uris: [redirect_uri | extra_redirect_uris],
-      application_type: "web",
-      grant_types: ["authorization_code", "refresh_token"],
-      scope: scopes,
-      response_type: ["code"],
-      token_endpoint_auth_method: "private_key_jwt",
-      token_endpoint_auth_signing_alg: "ES256",
-      dpop_bound_access_tokens: true,
-      jwks: %{keys: [jwk]}
-    }
-  end
-
-  @doc """
-  Retrieves the configured JWT private key for signing client assertions.
-
-  Loads the private key from configuration, decodes the base64-encoded DER data,
-  and creates a JOSE JWK structure with the key ID field set.
-
-  ## Returns
-
-  A `JOSE.JWK` struct containing the private key and key identifier.
-
-  ## Raises
-
-  * `Application.Env.Error` if the private_key or key_id configuration is missing
-
-  ## Examples
-
-      key = OAuth.get_key()
-      key = OAuth.get_key()
-  """
-  @spec get_key() :: JOSE.JWK.t()
-  def get_key(), do: Config.get_key()
-
-  @doc false
-  @spec random_b64(integer()) :: String.t()
-  def random_b64(length) do
-    :crypto.strong_rand_bytes(length)
-    |> Base.url_encode64(padding: false)
-  end
-
-  @doc false
-  @spec create_nonce() :: String.t()
-  def create_nonce(), do: random_b64(32)
-
-  @doc """
-  Create an OAuth authorization URL for a PDS.
-
-  Submits a PAR request to the authorization server and constructs the
-  authorization URL with the returned request URI. Supports PKCE, DPoP, and
-  client assertions as required by the AT Protocol.
+  Updates the `:atex_active_session` value in the Plug session.
 
   ## Parameters
 
-    - `authz_metadata` - Authorization server metadata containing endpoints, fetched from `get_authorization_server_metadata/1`
-    - `state` - Random token for session validation
-    - `code_verifier` - PKCE code verifier
-    - `login_hint` - User identifier (handle or DID) for pre-filled login
-
-  ## Returns
-
-    - `{:ok, authorization_url}` - Successfully created authorization URL
-    - `{:ok, :invalid_par_response}` - Server respondend incorrectly to the request
-    - `{:error, reason}` - Error creating authorization URL
+  - `conn` - A `Plug.Conn` with session data loaded
+  - `session_key` - The session key to make active
   """
-  @spec create_authorization_url(
-          authorization_metadata(),
-          String.t(),
-          String.t(),
-          String.t(),
-          list(create_authorization_url_option())
-        ) :: {:ok, String.t()} | {:error, any()}
-  def create_authorization_url(
-        authz_metadata,
-        state,
-        code_verifier,
-        login_hint,
-        opts \\ []
-      ) do
-    opts =
-      Keyword.validate!(
-        opts,
-        [:key, :client_id, :redirect_uri, :scopes]
-      )
-
-    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
-    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
-    scopes = Keyword.get_lazy(opts, :scopes, &Config.scopes/0)
-
-    code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
-
-    client_assertion =
-      create_client_assertion(key, client_id, authz_metadata.issuer)
-
-    body =
-      %{
-        response_type: "code",
-        client_id: client_id,
-        redirect_uri: redirect_uri,
-        state: state,
-        code_challenge_method: "S256",
-        code_challenge: code_challenge,
-        scope: scopes,
-        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-        client_assertion: client_assertion,
-        login_hint: login_hint
-      }
-
-    case Req.post(authz_metadata.par_endpoint, form: body) do
-      {:ok, %{body: %{"request_uri" => request_uri}}} ->
-        query =
-          %{client_id: client_id, request_uri: request_uri}
-          |> URI.encode_query()
-
-        {:ok, "#{authz_metadata.authorization_endpoint}?#{query}"}
-
-      {:ok, _} ->
-        {:error, :invalid_par_response}
-
-      err ->
-        err
-    end
+  @spec switch_session(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
+  def switch_session(conn, session_key) do
+    Plug.Conn.put_session(conn, @session_active_name, session_key)
   end
 
   @doc """
-  Exchange an OAuth authorization code for a set of access and refresh tokens.
+  Delete the currently active OAuth session.
 
-  Validates the authorization code by submitting it to the token endpoint along with
-  the PKCE code verifier and client assertion. Returns access tokens for making authenticated
-  requests to the relevant user's PDS.
-
-  ## Parameters
-
-    - `authz_metadata` - Authorization server metadata containing token endpoint
-    - `dpop_key` - JWK for DPoP token generation
-    - `code` - Authorization code from OAuth callback
-    - `code_verifier` - PKCE code verifier from authorization flow
-
-  ## Returns
-
-    - `{:ok, tokens, nonce}` - Successfully obtained tokens with returned DPoP nonce
-    - `{:error, reason}` - Error exchanging code for tokens
-  """
-  @spec validate_authorization_code(
-          authorization_metadata(),
-          JOSE.JWK.t(),
-          String.t(),
-          String.t(),
-          list(validate_authorization_code_option())
-        ) :: {:ok, tokens(), String.t()} | {:error, any()}
-  def validate_authorization_code(
-        authz_metadata,
-        dpop_key,
-        code,
-        code_verifier,
-        opts \\ []
-      ) do
-    opts =
-      Keyword.validate!(
-        opts,
-        [:key, :client_id, :redirect_uri, :scopes]
-      )
-
-    key = Keyword.get_lazy(opts, :key, &get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
-    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
-
-    client_assertion =
-      create_client_assertion(key, client_id, authz_metadata.issuer)
-
-    body =
-      %{
-        grant_type: "authorization_code",
-        client_id: client_id,
-        redirect_uri: redirect_uri,
-        code: code,
-        code_verifier: code_verifier
-      }
-
-    body =
-      if Config.is_localhost(),
-        do: body,
-        else:
-          Map.merge(body, %{
-            client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            client_assertion: client_assertion
-          })
-
-    Req.new(method: :post, url: authz_metadata.token_endpoint, form: body)
-    |> send_oauth_dpop_request(dpop_key)
-    |> case do
-      {:ok,
-       %{
-         "access_token" => access_token,
-         "refresh_token" => refresh_token,
-         "expires_in" => expires_in,
-         "sub" => did
-       }, nonce} ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
-
-        {:ok,
-         %{
-           access_token: access_token,
-           refresh_token: refresh_token,
-           did: did,
-           expires_at: expires_at
-         }, nonce}
-
-      err ->
-        err
-    end
-  end
-
-  @spec refresh_token(
-          String.t(),
-          JOSE.JWK.t(),
-          String.t(),
-          String.t(),
-          list(refresh_token_option())
-        ) ::
-          {:ok, tokens(), String.t()} | {:error, any()}
-  def refresh_token(refresh_token, dpop_key, issuer, token_endpoint, opts \\ []) do
-    opts =
-      Keyword.validate!(
-        opts,
-        [:key, :client_id, :redirect_uri, :scopes]
-      )
-
-    key = Keyword.get_lazy(opts, :key, &get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
-
-    client_assertion =
-      create_client_assertion(key, client_id, issuer)
-
-    body = %{
-      grant_type: "refresh_token",
-      refresh_token: refresh_token,
-      client_id: client_id,
-      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-      client_assertion: client_assertion
-    }
-
-    Req.new(method: :post, url: token_endpoint, form: body)
-    |> send_oauth_dpop_request(dpop_key)
-    |> case do
-      {:ok,
-       %{
-         "access_token" => access_token,
-         "refresh_token" => refresh_token,
-         "expires_in" => expires_in,
-         "sub" => did
-       }, nonce} ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
-
-        {:ok,
-         %{
-           access_token: access_token,
-           refresh_token: refresh_token,
-           did: did,
-           expires_at: expires_at
-         }, nonce}
-
-      err ->
-        err
-    end
-  end
-
-  @doc """
-  Fetch the authorization server for a given Personal Data Server (PDS).
-
-  Makes a request to the PDS's `.well-known/oauth-protected-resource` endpoint
-  to discover the associated authorization server that should be used for the
-  OAuth flow. Results are cached for 1 hour to reduce load on third-party PDSs.
+  Removes the active session from `SessionStore`, removes its key from the
+  session key list, and clears the active session pointer in the Plug session.
 
   ## Parameters
 
-    - `pds_host` - Base URL of the PDS (e.g., "https://bsky.social")
-    - `fresh` - If `true`, bypasses the cache and fetches fresh data (default: `false`)
-
-  ## Returns
-
-    - `{:ok, authorization_server}` - Successfully discovered authorization
-      server URL
-    - `{:error, :invalid_metadata}` - Server returned invalid metadata
-    - `{:error, reason}` - Error discovering authorization server
+  - `conn` - A `Plug.Conn` with session data loaded
   """
-  @spec get_authorization_server(String.t(), boolean()) :: {:ok, String.t()} | {:error, any()}
-  def get_authorization_server(pds_host, fresh \\ false) do
-    if fresh do
-      fetch_authorization_server(pds_host)
-    else
-      case Atex.OAuth.Cache.get_authorization_server(pds_host) do
-        {:ok, authz_server} ->
-          {:ok, authz_server}
+  @spec delete_session(Plug.Conn.t()) :: Plug.Conn.t()
+  def delete_session(conn) do
+    session_key = current_session_key(conn)
 
-        {:error, :not_found} ->
-          fetch_authorization_server(pds_host)
-      end
+    if session_key do
+      SessionStore.delete(session_key)
     end
-  end
 
-  defp fetch_authorization_server(pds_host) do
-    result =
-      "#{pds_host}/.well-known/oauth-protected-resource"
-      |> Req.get()
-      |> case do
-        # TODO: what to do when multiple authorization servers?
-        {:ok, %{body: %{"authorization_servers" => [authz_server | _]}}} -> {:ok, authz_server}
-        {:ok, _} -> {:error, :invalid_metadata}
-        err -> err
-      end
+    session_keys = list_session_keys(conn) |> List.delete(session_key)
 
-    case result do
-      {:ok, authz_server} ->
-        Atex.OAuth.Cache.set_authorization_server(pds_host, authz_server)
-        {:ok, authz_server}
-
-      error ->
-        error
-    end
-  end
-
-  @doc """
-  Fetch the metadata for an OAuth authorization server.
-
-  Retrieves the metadata from the authorization server's
-  `.well-known/oauth-authorization-server` endpoint, providing endpoint URLs
-  required for the OAuth flow. Results are cached for 1 hour to reduce load on
-  third-party PDSs.
-
-  ## Parameters
-
-    - `issuer` - Authorization server issuer URL
-    - `fresh` - If `true`, bypasses the cache and fetches fresh data (default: `false`)
-
-  ## Returns
-
-    - `{:ok, metadata}` - Successfully retrieved authorization server metadata
-    - `{:error, :invalid_metadata}` - Server returned invalid metadata
-    - `{:error, :invalid_issuer}` - Issuer mismatch in metadata
-    - `{:error, any()}` - Other error fetching metadata
-  """
-  @spec get_authorization_server_metadata(String.t(), boolean()) ::
-          {:ok, authorization_metadata()} | {:error, any()}
-  def get_authorization_server_metadata(issuer, fresh \\ false) do
-    if fresh do
-      fetch_authorization_server_metadata(issuer)
-    else
-      case Atex.OAuth.Cache.get_authorization_server_metadata(issuer) do
-        {:ok, metadata} ->
-          {:ok, metadata}
-
-        {:error, :not_found} ->
-          fetch_authorization_server_metadata(issuer)
-      end
-    end
-  end
-
-  defp fetch_authorization_server_metadata(issuer) do
-    result =
-      "#{issuer}/.well-known/oauth-authorization-server"
-      |> Req.get()
-      |> case do
-        {:ok,
-         %{
-           body: %{
-             "issuer" => metadata_issuer,
-             "pushed_authorization_request_endpoint" => par_endpoint,
-             "token_endpoint" => token_endpoint,
-             "authorization_endpoint" => authorization_endpoint,
-             "revocation_endpoint" => revocation_endpoint
-           }
-         }} ->
-          if issuer != metadata_issuer do
-            {:error, :invaild_issuer}
-          else
-            {:ok,
-             %{
-               issuer: metadata_issuer,
-               par_endpoint: par_endpoint,
-               token_endpoint: token_endpoint,
-               authorization_endpoint: authorization_endpoint,
-               revocation_endpoint: revocation_endpoint
-             }}
-          end
-
-        {:ok, _} ->
-          {:error, :invalid_metadata}
-
-        err ->
-          err
-      end
-
-    case result do
-      {:ok, metadata} ->
-        Atex.OAuth.Cache.set_authorization_server_metadata(issuer, metadata)
-        {:ok, metadata}
-
-      error ->
-        error
-    end
-  end
-
-  @spec send_oauth_dpop_request(Req.Request.t(), JOSE.JWK.t(), String.t() | nil) ::
-          {:ok, map(), String.t()} | {:error, any(), String.t()}
-  def send_oauth_dpop_request(request, dpop_key, nonce \\ nil) do
-    dpop_token = create_dpop_token(dpop_key, request, nonce)
-
-    request
-    |> Req.Request.put_header("dpop", dpop_token)
-    |> Req.request()
-    |> case do
-      {:ok, resp} ->
-        dpop_nonce =
-          case resp.headers["dpop-nonce"] do
-            [new_nonce | _] -> new_nonce
-            _ -> nonce
-          end
-
-        cond do
-          resp.status == 200 ->
-            {:ok, resp.body, dpop_nonce}
-
-          resp.body["error"] === "use_dpop_nonce" ->
-            dpop_token = create_dpop_token(dpop_key, request, dpop_nonce)
-
-            request
-            |> Req.Request.put_header("dpop", dpop_token)
-            |> Req.request()
-            |> case do
-              {:ok, %{status: 200, body: body}} ->
-                {:ok, body, dpop_nonce}
-
-              {:ok, %{body: %{"error" => error, "error_description" => error_description}}} ->
-                {:error, {:oauth_error, error, error_description}, dpop_nonce}
-
-              {:ok, _} ->
-                {:error, :unexpected_response, dpop_nonce}
-
-              {:error, err} ->
-                {:error, err, dpop_nonce}
-            end
-
-          true ->
-            {:error, {:oauth_error, resp.body["error"], resp.body["error_description"]},
-             dpop_nonce}
-        end
-
-      {:error, err} ->
-        {:error, err, nonce}
-    end
-  end
-
-  @spec request_protected_dpop_resource(
-          Req.Request.t(),
-          String.t(),
-          String.t(),
-          JOSE.JWK.t(),
-          String.t() | nil
-        ) :: {:ok, Req.Response.t(), String.t() | nil} | {:error, any()}
-  def request_protected_dpop_resource(request, issuer, access_token, dpop_key, nonce \\ nil) do
-    access_token_hash = :crypto.hash(:sha256, access_token) |> Base.url_encode64(padding: false)
-    # access_token_hash = Base.url_encode64(access_token, padding: false)
-
-    dpop_token =
-      create_dpop_token(dpop_key, request, nonce, %{iss: issuer, ath: access_token_hash})
-
-    request
-    |> Req.Request.put_header("dpop", dpop_token)
-    |> Req.request()
-    |> case do
-      {:ok, resp} ->
-        dpop_nonce =
-          case resp.headers["dpop-nonce"] do
-            [new_nonce | _] -> new_nonce
-            _ -> nonce
-          end
-
-        www_authenticate = Req.Response.get_header(resp, "www-authenticate")
-
-        www_dpop_problem =
-          www_authenticate != [] && String.starts_with?(Enum.at(www_authenticate, 0), "DPoP")
-
-        if resp.status != 401 || !www_dpop_problem do
-          {:ok, resp, dpop_nonce}
-        else
-          dpop_token =
-            create_dpop_token(dpop_key, request, dpop_nonce, %{
-              iss: issuer,
-              ath: access_token_hash
-            })
-
-          request
-          |> Req.Request.put_header("dpop", dpop_token)
-          |> Req.request()
-          |> case do
-            {:ok, resp} ->
-              dpop_nonce =
-                case resp.headers["dpop-nonce"] do
-                  [new_nonce | _] -> new_nonce
-                  _ -> dpop_nonce
-                end
-
-              {:ok, resp, dpop_nonce}
-
-            err ->
-              err
-          end
-        end
-    end
-  end
-
-  @doc """
-  Revokes the access and refresh tokens with the authorization server.
-
-  Sends both tokens to the revocation endpoint as defined in RFC 7009.
-  This invalidates the tokens on the PDS side, preventing further use.
-
-  ## Parameters
-
-    - `session` - The session containing tokens to revoke
-    - `authz_metadata` - Authorization server metadata including `revocation_endpoint`
-
-  ## Returns
-
-    - `:ok` - Tokens successfully revoked (or revocation endpoint unreachable)
-    - `{:error, reason}` - Revocation failed
-
-  """
-  @spec revoke_tokens(Session.t(), authorization_metadata()) :: :ok | {:error, any()}
-  def revoke_tokens(%Session{} = session, authz_metadata) do
-    client_id = Config.client_id()
-
-    body = %{
-      client_id: client_id,
-      token: session.refresh_token,
-      token_type_hint: "refresh_token"
-    }
-
-    case Req.post(authz_metadata.revocation_endpoint, form: body) do
-      {:ok, %{status: status}} when status in [200, 204] ->
-        :ok
-
-      {:ok, %{body: %{"error" => error}}} ->
-        Logger.warning("Token revocation failed: #{error}")
-        :ok
-
-      {:error, reason} ->
-        Logger.warning("Token revocation request failed: #{inspect(reason)}")
-        :ok
-
-      unexpected ->
-        Logger.warning("Unexpected token revocation response: #{inspect(unexpected)}")
-        :ok
-    end
-  end
-
-  @doc """
-  Deletes a session from the store and revokes its tokens.
-
-  This is the primary function for logging out a session. It:
-  1. Fetches the session data from the store if a key is provided
-  2. Revokes the tokens with the authorization server
-  3. Removes the session from the store
-
-  ## Parameters
-
-    - `session_or_key` - Either a `Session.t()` struct or a composite session key string
-
-  ## Returns
-
-    - `:ok` - Session deleted and tokens revoked
-    - `{:error, :not_found}` - Session not found in store
-    - `{:error, reason}` - Token revocation or store deletion failed
-
-  ## Examples
-
-      # Using a session key
-      case Atex.OAuth.delete_session("did:plc:abc123:device-nonce") do
-        :ok -> :logged_out
-        {:error, :not_found} -> :session_already_gone
-      end
-
-      # Using a session struct
-      {:ok, session} = Atex.OAuth.SessionStore.get("did:plc:abc123:device-nonce")
-      :ok = Atex.OAuth.delete_session(session)
-
-  """
-  @spec delete_session(Session.t() | String.t()) :: :ok | {:error, :not_found | any()}
-  def delete_session(%Session{} = session) do
-    with {:ok, authz_metadata} <- get_authorization_server_metadata(session.iss, true),
-         :ok <- revoke_tokens(session, authz_metadata) do
-      SessionStore.delete(session)
-    end
-  end
-
-  def delete_session(session_key) when is_binary(session_key) do
-    case SessionStore.get(session_key) do
-      {:ok, session} -> delete_session(session)
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @spec create_client_assertion(JOSE.JWK.t(), String.t(), String.t()) :: String.t()
-  def create_client_assertion(jwk, client_id, issuer) do
-    iat = System.os_time(:second)
-    jti = random_b64(20)
-    jws = %{"alg" => "ES256", "kid" => jwk.fields["kid"]}
-
-    jwt = %{
-      iss: client_id,
-      sub: client_id,
-      aud: issuer,
-      jti: jti,
-      iat: iat,
-      exp: iat + 60
-    }
-
-    JOSE.JWT.sign(jwk, jws, jwt)
-    |> JOSE.JWS.compact()
-    |> elem(1)
-  end
-
-  @spec create_dpop_token(JOSE.JWK.t(), Req.Request.t(), any(), map()) :: String.t()
-  def create_dpop_token(jwk, request, nonce \\ nil, attrs \\ %{}) do
-    iat = System.os_time(:second)
-    jti = random_b64(20)
-    {_, public_jwk} = JOSE.JWK.to_public_map(jwk)
-    jws = %{"alg" => "ES256", "typ" => "dpop+jwt", "jwk" => public_jwk}
-    [request_url | _] = request.url |> to_string() |> String.split("?")
-
-    jwt =
-      Map.merge(attrs, %{
-        jti: jti,
-        htm: atom_to_upcase_string(request.method),
-        htu: request_url,
-        iat: iat
-      })
-      |> then(fn m ->
-        if nonce, do: Map.put(m, :nonce, nonce), else: m
-      end)
-
-    JOSE.JWT.sign(jwk, jws, jwt)
-    |> JOSE.JWS.compact()
-    |> elem(1)
-  end
-
-  @doc false
-  @spec atom_to_upcase_string(atom()) :: String.t()
-  def atom_to_upcase_string(atom) do
-    atom |> to_string() |> String.upcase()
+    conn
+    |> Plug.Conn.put_session(@session_keys_name, session_keys)
+    |> Plug.Conn.delete_session(@session_active_name)
   end
 end

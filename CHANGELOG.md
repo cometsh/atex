@@ -11,6 +11,14 @@ and this project adheres to
 - Fix `raw_input` not actually being set as the request's body in
   `Atex.XRPC.post/3` when providing a struct as input.
 
+### Breaking Changes
+
+- `Atex.OAuth.get_key/0` removed — use `Atex.Config.OAuth.get_key/0` directly
+- `Atex.OAuth.create_client_metadata/1`, `create_client_assertion/3`, `create_authorization_url/5`, `validate_authorization_code/5`, `refresh_token/5`, `revoke_tokens/2` moved to `Atex.OAuth.Flow`
+- `Atex.OAuth.create_dpop_token/4`, `send_oauth_dpop_request/3`, `request_protected_dpop_resource/5` moved to `Atex.OAuth.DPoP`
+- `Atex.OAuth.get_authorization_server/2`, `get_authorization_server_metadata/2` moved to `Atex.OAuth.Discovery`
+- Error atom `:invaild_issuer` corrected to `:invalid_issuer`
+
 ## [0.9.1] - 2026-04-17
 
 ### Fixed
