@@ -230,7 +230,7 @@ defmodule Atex.OAuth.Flow do
     }
 
     body =
-      if Config.is_localhost(),
+      if Config.localhost?(),
         do: body,
         else:
           Map.merge(body, %{
