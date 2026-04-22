@@ -4,7 +4,7 @@ defmodule Atex.OAuth.Error do
   Plug, you should set up a `Plug.ErrorHandler` to gracefully catch these and
   give messages to the end user.
 
-  This extesion has two fields: a human-readable `message` string, and an atom
+  This exception has two fields: a human-readable `message` string, and an atom
   `reason` for each specific error.
 
   ## Reasons
