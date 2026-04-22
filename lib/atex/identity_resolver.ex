@@ -1,4 +1,19 @@
 defmodule Atex.IdentityResolver do
+  @moduledoc """
+  Resolves AT Protocol identifiers (DIDs and handles) to `Atex.IdentityResolver.Identity` structs.
+
+  Resolution results are cached in `Atex.IdentityResolver.Cache` (ETS) to avoid
+  repeated network calls. Handle resolution strategy is compile-time configurable:
+
+      config :atex, handle_resolver_strategy: :dns_first  # default: :dns_first
+
+  ## Examples
+
+      {:ok, identity} = Atex.IdentityResolver.resolve("user.bsky.social")
+      {:ok, identity} = Atex.IdentityResolver.resolve("did:plc:abc123")
+
+  """
+
   alias Atex.IdentityResolver.{Cache, DID, Handle, Identity}
   alias Atex.DID.Document, as: DIDDocument
 
@@ -7,6 +22,27 @@ defmodule Atex.IdentityResolver do
 
   # TODO: simplify errors
 
+  @doc """
+  Resolve a DID or handle to an `Atex.IdentityResolver.Identity` struct.
+
+  For a DID, resolves the DID document and optionally cross-checks the handle
+  declared in it. For a handle, resolves to a DID via DNS or HTTP, then fetches
+  and validates the DID document.
+
+  Results are cached. Pass `skip_cache: true` to force a fresh resolution.
+
+  ## Parameters
+
+  - `identifier` - A DID string (e.g., `"did:plc:abc123"`) or a handle (e.g., `"user.bsky.social"`)
+  - `opts` - Keyword options:
+    - `:skip_cache` - If `true`, bypass the cache (default: `false`)
+
+  ## Returns
+
+  - `{:ok, identity}` - Successfully resolved identity
+  - `{:error, :handle_mismatch}` - Handle in DID document does not match resolved handle
+  - `{:error, reason}` - Resolution or network failure
+  """
   @spec resolve(String.t(), list(options())) :: {:ok, Identity.t()} | {:error, any()}
   def resolve(identifier, opts \\ []) do
     opts = Keyword.validate!(opts, skip_cache: false)
