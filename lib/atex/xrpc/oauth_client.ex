@@ -142,7 +142,18 @@ defmodule Atex.XRPC.OAuthClient do
   end
 
   @spec do_refresh(t()) :: {:ok, OAuth.Session.t()} | {:error, any()}
-  defp do_refresh(%__MODULE__{session_key: session_key}) do
+  defp do_refresh(%__MODULE__{} = client) do
+    Atex.Telemetry.span(
+      [:atex, :xrpc, :token_refresh],
+      %{client_type: :oauth},
+      fn ->
+        {do_refresh_impl(client), %{}}
+      end
+    )
+  end
+
+  @spec do_refresh_impl(t()) :: {:ok, OAuth.Session.t()} | {:error, any()}
+  defp do_refresh_impl(%__MODULE__{session_key: session_key}) do
     with {:ok, session} <- OAuth.SessionStore.get(session_key),
          {:ok, authz_server} <- Discovery.get_authorization_server(session.aud),
          {:ok, %{token_endpoint: token_endpoint}} <-
@@ -227,6 +238,7 @@ defmodule Atex.XRPC.OAuthClient do
             |> Keyword.put(:url, url)
             |> Req.new()
             |> Req.Request.put_header("authorization", "DPoP #{session.access_token}")
+            |> Atex.Telemetry.attach_req_plugin(client_type: :oauth)
 
           case DPoP.request_protected_dpop_resource(
                  request,

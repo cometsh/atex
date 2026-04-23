@@ -149,40 +149,48 @@ defmodule Atex.OAuth.Flow do
           list(create_authorization_url_option())
         ) :: {:ok, String.t()} | {:error, any()}
   def create_authorization_url(authz_metadata, state, code_verifier, login_hint, opts \\ []) do
-    opts = Keyword.validate!(opts, [:key, :client_id, :redirect_uri, :scopes])
+    Atex.Telemetry.span(
+      [:atex, :oauth, :authorization_url],
+      %{issuer: Map.get(authz_metadata, :issuer)},
+      fn ->
+        opts = Keyword.validate!(opts, [:key, :client_id, :redirect_uri, :scopes])
+        key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
+        client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
+        redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
+        scopes = Keyword.get_lazy(opts, :scopes, &Config.scopes/0)
 
-    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
-    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
-    scopes = Keyword.get_lazy(opts, :scopes, &Config.scopes/0)
+        code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
+        client_assertion = create_client_assertion(key, client_id, authz_metadata.issuer)
 
-    code_challenge = :crypto.hash(:sha256, code_verifier) |> Base.url_encode64(padding: false)
-    client_assertion = create_client_assertion(key, client_id, authz_metadata.issuer)
+        body = %{
+          response_type: "code",
+          client_id: client_id,
+          redirect_uri: redirect_uri,
+          state: state,
+          code_challenge_method: "S256",
+          code_challenge: code_challenge,
+          scope: scopes,
+          client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+          client_assertion: client_assertion,
+          login_hint: login_hint
+        }
 
-    body = %{
-      response_type: "code",
-      client_id: client_id,
-      redirect_uri: redirect_uri,
-      state: state,
-      code_challenge_method: "S256",
-      code_challenge: code_challenge,
-      scope: scopes,
-      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-      client_assertion: client_assertion,
-      login_hint: login_hint
-    }
+        result =
+          case Req.post(authz_metadata.par_endpoint, form: body) do
+            {:ok, %{body: %{"request_uri" => request_uri}}} ->
+              query = %{client_id: client_id, request_uri: request_uri} |> URI.encode_query()
+              {:ok, "#{authz_metadata.authorization_endpoint}?#{query}"}
 
-    case Req.post(authz_metadata.par_endpoint, form: body) do
-      {:ok, %{body: %{"request_uri" => request_uri}}} ->
-        query = %{client_id: client_id, request_uri: request_uri} |> URI.encode_query()
-        {:ok, "#{authz_metadata.authorization_endpoint}?#{query}"}
+            {:ok, _} ->
+              {:error, :invalid_par_response}
 
-      {:ok, _} ->
-        {:error, :invalid_par_response}
+            err ->
+              err
+          end
 
-      err ->
-        err
-    end
+        {result, %{}}
+      end
+    )
   end
 
   @doc """
@@ -213,54 +221,62 @@ defmodule Atex.OAuth.Flow do
           list(validate_authorization_code_option())
         ) :: {:ok, tokens(), String.t() | nil} | {:error, any()}
   def validate_authorization_code(authz_metadata, dpop_key, code, code_verifier, opts \\ []) do
-    opts = Keyword.validate!(opts, [:key, :client_id, :redirect_uri, :scopes])
+    Atex.Telemetry.span(
+      [:atex, :oauth, :code_exchange],
+      %{issuer: Map.get(authz_metadata, :issuer)},
+      fn ->
+        opts = Keyword.validate!(opts, [:key, :client_id, :redirect_uri, :scopes])
+        key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
+        client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
+        redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
 
-    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
-    redirect_uri = Keyword.get_lazy(opts, :redirect_uri, &Config.redirect_uri/0)
+        client_assertion = create_client_assertion(key, client_id, authz_metadata.issuer)
 
-    client_assertion = create_client_assertion(key, client_id, authz_metadata.issuer)
+        body = %{
+          grant_type: "authorization_code",
+          client_id: client_id,
+          redirect_uri: redirect_uri,
+          code: code,
+          code_verifier: code_verifier
+        }
 
-    body = %{
-      grant_type: "authorization_code",
-      client_id: client_id,
-      redirect_uri: redirect_uri,
-      code: code,
-      code_verifier: code_verifier
-    }
+        body =
+          if Config.localhost?(),
+            do: body,
+            else:
+              Map.merge(body, %{
+                client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+                client_assertion: client_assertion
+              })
 
-    body =
-      if Config.localhost?(),
-        do: body,
-        else:
-          Map.merge(body, %{
-            client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-            client_assertion: client_assertion
-          })
+        result =
+          Req.new(method: :post, url: authz_metadata.token_endpoint, form: body)
+          |> DPoP.send_oauth_dpop_request(dpop_key)
+          |> case do
+            {:ok,
+             %{
+               "access_token" => access_token,
+               "refresh_token" => refresh_token,
+               "expires_in" => expires_in,
+               "sub" => did
+             }, nonce} ->
+              expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
 
-    Req.new(method: :post, url: authz_metadata.token_endpoint, form: body)
-    |> DPoP.send_oauth_dpop_request(dpop_key)
-    |> case do
-      {:ok,
-       %{
-         "access_token" => access_token,
-         "refresh_token" => refresh_token,
-         "expires_in" => expires_in,
-         "sub" => did
-       }, nonce} ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
+              {:ok,
+               %{
+                 access_token: access_token,
+                 refresh_token: refresh_token,
+                 did: did,
+                 expires_at: expires_at
+               }, nonce}
 
-        {:ok,
-         %{
-           access_token: access_token,
-           refresh_token: refresh_token,
-           did: did,
-           expires_at: expires_at
-         }, nonce}
+            {:error, reason, _nonce} ->
+              {:error, reason}
+          end
 
-      {:error, reason, _nonce} ->
-        {:error, reason}
-    end
+        {result, %{}}
+      end
+    )
   end
 
   @doc """
@@ -285,44 +301,52 @@ defmodule Atex.OAuth.Flow do
           list(refresh_token_option())
         ) :: {:ok, tokens(), String.t() | nil} | {:error, any()}
   def refresh_token(refresh_token, dpop_key, issuer, token_endpoint, opts \\ []) do
-    opts = Keyword.validate!(opts, [:key, :client_id])
+    Atex.Telemetry.span(
+      [:atex, :oauth, :token_refresh],
+      %{issuer: issuer},
+      fn ->
+        opts = Keyword.validate!(opts, [:key, :client_id])
+        key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
+        client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
 
-    key = Keyword.get_lazy(opts, :key, &Config.get_key/0)
-    client_id = Keyword.get_lazy(opts, :client_id, &Config.client_id/0)
+        client_assertion = create_client_assertion(key, client_id, issuer)
 
-    client_assertion = create_client_assertion(key, client_id, issuer)
+        body = %{
+          grant_type: "refresh_token",
+          refresh_token: refresh_token,
+          client_id: client_id,
+          client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+          client_assertion: client_assertion
+        }
 
-    body = %{
-      grant_type: "refresh_token",
-      refresh_token: refresh_token,
-      client_id: client_id,
-      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-      client_assertion: client_assertion
-    }
+        result =
+          Req.new(method: :post, url: token_endpoint, form: body)
+          |> DPoP.send_oauth_dpop_request(dpop_key)
+          |> case do
+            {:ok,
+             %{
+               "access_token" => access_token,
+               "refresh_token" => refresh_token,
+               "expires_in" => expires_in,
+               "sub" => did
+             }, nonce} ->
+              expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
 
-    Req.new(method: :post, url: token_endpoint, form: body)
-    |> DPoP.send_oauth_dpop_request(dpop_key)
-    |> case do
-      {:ok,
-       %{
-         "access_token" => access_token,
-         "refresh_token" => refresh_token,
-         "expires_in" => expires_in,
-         "sub" => did
-       }, nonce} ->
-        expires_at = NaiveDateTime.utc_now() |> NaiveDateTime.add(expires_in, :second)
+              {:ok,
+               %{
+                 access_token: access_token,
+                 refresh_token: refresh_token,
+                 did: did,
+                 expires_at: expires_at
+               }, nonce}
 
-        {:ok,
-         %{
-           access_token: access_token,
-           refresh_token: refresh_token,
-           did: did,
-           expires_at: expires_at
-         }, nonce}
+            {:error, reason, _nonce} ->
+              {:error, reason}
+          end
 
-      {:error, reason, _nonce} ->
-        {:error, reason}
-    end
+        {result, %{}}
+      end
+    )
   end
 
   @doc """
@@ -343,30 +367,39 @@ defmodule Atex.OAuth.Flow do
   """
   @spec revoke_tokens(Session.t(), authorization_metadata()) :: :ok
   def revoke_tokens(%Session{} = session, authz_metadata) do
-    client_id = Config.client_id()
+    Atex.Telemetry.span(
+      [:atex, :oauth, :token_revocation],
+      %{issuer: Map.get(authz_metadata, :issuer)},
+      fn ->
+        client_id = Config.client_id()
 
-    body = %{
-      client_id: client_id,
-      token: session.refresh_token,
-      token_type_hint: "refresh_token"
-    }
+        body = %{
+          client_id: client_id,
+          token: session.refresh_token,
+          token_type_hint: "refresh_token"
+        }
 
-    case Req.post(authz_metadata.revocation_endpoint, form: body) do
-      {:ok, %{status: status}} when status in [200, 204] ->
-        :ok
+        result =
+          case Req.post(authz_metadata.revocation_endpoint, form: body) do
+            {:ok, %{status: status}} when status in [200, 204] ->
+              :ok
 
-      {:ok, %{body: %{"error" => error}}} ->
-        Logger.warning("Token revocation failed: #{error}")
-        :ok
+            {:ok, %{body: %{"error" => error}}} ->
+              Logger.warning("Token revocation failed: #{error}")
+              :ok
 
-      {:error, reason} ->
-        Logger.warning("Token revocation request failed: #{inspect(reason)}")
-        :ok
+            {:error, reason} ->
+              Logger.warning("Token revocation request failed: #{inspect(reason)}")
+              :ok
 
-      unexpected ->
-        Logger.warning("Unexpected token revocation response: #{inspect(unexpected)}")
-        :ok
-    end
+            unexpected ->
+              Logger.warning("Unexpected token revocation response: #{inspect(unexpected)}")
+              :ok
+          end
+
+        {result, %{}}
+      end
+    )
   end
 
   @spec random_b64(integer()) :: String.t()

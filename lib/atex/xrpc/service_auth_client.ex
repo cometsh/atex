@@ -51,7 +51,11 @@ defmodule Atex.XRPC.ServiceAuthClient do
 
   @spec request(t(), keyword()) :: {:ok, Req.Response.t(), t()} | {:error, any(), t()}
   defp request(client, opts) do
-    req = opts |> Req.new() |> put_auth(client.token)
+    req =
+      opts
+      |> Req.new()
+      |> put_auth(client.token)
+      |> Atex.Telemetry.attach_req_plugin(client_type: :service_auth)
 
     case Req.request(req) do
       {:ok, response} -> {:ok, response, client}

@@ -46,6 +46,7 @@ defmodule Atex.MixProject do
       {:bandit, "~> 1.0", only: [:dev, :test]},
       {:con_cache, "~> 1.1"},
       {:mutex, "~> 3.0"},
+      {:telemetry, "~> 1.0", optional: true},
       {:dasl, "~> 0.1"},
       {:mst, "~> 0.1"},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},

@@ -105,49 +105,75 @@ defmodule Atex.ServiceAuth do
 
     peek_result =
       try do
-        peeked = JOSE.JWT.peek(jwt)
-        {:ok, peeked}
+        {:ok, JOSE.JWT.peek(jwt)}
       rescue
         _ -> {:error, :invalid_jwt}
       end
 
-    case peek_result do
-      {:error, _} = err ->
-        err
+    {span_iss, span_lxm} =
+      case peek_result do
+        {:ok, %{fields: fields}} -> {Map.get(fields, "iss"), Map.get(fields, "lxm")}
+        _ -> {nil, nil}
+      end
 
-      {:ok,
-       %{
-         fields:
-           %{
-             "aud" => target_aud,
-             "iat" => iat,
-             "exp" => exp,
-             "iss" => issuing_did,
-             "jti" => nonce
-           } = fields
-       }} ->
-        target_lxm = Map.get(fields, "lxm")
+    Atex.Telemetry.span(
+      [:atex, :service_auth, :validate],
+      %{iss: span_iss, lxm: span_lxm},
+      fn ->
+        result = do_validate_jwt(jwt, peek_result, expected_aud, expected_lxm)
+        {result, %{}}
+      end
+    )
+  end
 
-        with :ok <- validate_aud(expected_aud, target_aud),
-             :ok <- validate_lxm(expected_lxm, target_lxm),
-             :ok <- validate_token_times(iat, exp),
-             # Resolve JWT's issuer to: a) make sure it's a real identity, b) get
-             # the signing key from their DID document to verify the token
-             {:ok, identity} <- Atex.IdentityResolver.resolve(issuing_did),
-             user_jwk when not is_nil(user_jwk) <-
-               Atex.DID.Document.get_atproto_signing_key(identity.document),
-             {true, %JOSE.JWT{} = jwt_struct, _jws} <- JOSE.JWT.verify(user_jwk, jwt),
-             # Record the nonce atomically after successful verification. insert_new
-             # is used under the hood so this returns :seen if the jti was already
-             # consumed, preventing replay attacks.
-             :ok <- Atex.ServiceAuth.JTICache.put(nonce, exp) do
-          {:ok, jwt_struct}
-        else
-          :seen -> {:error, :replayed_token}
-          err -> err
-        end
+  @spec do_validate_jwt(
+          String.t(),
+          {:ok, JOSE.JWT.t()} | {:error, atom()},
+          String.t(),
+          String.t() | nil
+        ) :: {:ok, JOSE.JWT.t()} | {:error, atom()}
+  defp do_validate_jwt(_jwt, {:error, _} = err, _expected_aud, _expected_lxm), do: err
+
+  defp do_validate_jwt(
+         jwt,
+         {:ok,
+          %{
+            fields:
+              %{
+                "aud" => target_aud,
+                "iat" => iat,
+                "exp" => exp,
+                "iss" => issuing_did,
+                "jti" => nonce
+              } = fields
+          }},
+         expected_aud,
+         expected_lxm
+       ) do
+    target_lxm = Map.get(fields, "lxm")
+
+    with :ok <- validate_aud(expected_aud, target_aud),
+         :ok <- validate_lxm(expected_lxm, target_lxm),
+         :ok <- validate_token_times(iat, exp),
+         # Resolve JWT's issuer to: a) make sure it's a real identity, b) get
+         # the signing key from their DID document to verify the token
+         {:ok, identity} <- Atex.IdentityResolver.resolve(issuing_did),
+         user_jwk when not is_nil(user_jwk) <-
+           Atex.DID.Document.get_atproto_signing_key(identity.document),
+         {true, %JOSE.JWT{} = jwt_struct, _jws} <- JOSE.JWT.verify(user_jwk, jwt),
+         # Record the nonce atomically after successful verification. insert_new
+         # is used under the hood so this returns :seen if the jti was already
+         # consumed, preventing replay attacks.
+         :ok <- Atex.ServiceAuth.JTICache.put(nonce, exp) do
+      {:ok, jwt_struct}
+    else
+      :seen -> {:error, :replayed_token}
+      err -> err
     end
   end
+
+  defp do_validate_jwt(_jwt, {:ok, _unmatched}, _expected_aud, _expected_lxm),
+    do: {:error, :invalid_jwt}
 
   @spec validate_token_times(integer(), integer()) :: :ok | {:error, reason :: atom()}
   defp validate_token_times(iat, exp) do

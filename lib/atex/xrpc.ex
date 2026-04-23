@@ -162,7 +162,10 @@ defmodule Atex.XRPC do
   @spec unauthed_get(String.t(), String.t(), keyword()) ::
           {:ok, Req.Response.t()} | {:error, any()}
   def unauthed_get(endpoint, name, opts \\ []) do
-    Req.get(url(endpoint, name), opts)
+    (opts ++ [method: :get, url: url(endpoint, name)])
+    |> Req.new()
+    |> Atex.Telemetry.attach_req_plugin(client_type: :unauthed)
+    |> Req.request()
   end
 
   @doc """
@@ -171,7 +174,10 @@ defmodule Atex.XRPC do
   @spec unauthed_post(String.t(), String.t(), keyword()) ::
           {:ok, Req.Response.t()} | {:error, any()}
   def unauthed_post(endpoint, name, opts \\ []) do
-    Req.post(url(endpoint, name), opts)
+    (opts ++ [method: :post, url: url(endpoint, name)])
+    |> Req.new()
+    |> Atex.Telemetry.attach_req_plugin(client_type: :unauthed)
+    |> Req.request()
   end
 
   @doc """

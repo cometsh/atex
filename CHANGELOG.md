@@ -31,6 +31,9 @@ and this project adheres to
   `Atex.OAuth.session_active_session_name/0` expose Plug session key atoms
 - `Atex.IdentityResolver` now has full module and function documentation
 - `Atex.XRPC.LoginClient` now has a `@moduledoc`
+- Optional `:telemetry` instrumentation via `Atex.Telemetry`. Add `{:telemetry, "~> 1.0"}` to
+  your deps to receive events from XRPC requests, identity resolution, OAuth flows, and service
+  auth validation. See `Atex.Telemetry` for the full event catalogue.
 
 ### Fixed
 

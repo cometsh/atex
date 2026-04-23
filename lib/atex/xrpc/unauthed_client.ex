@@ -27,6 +27,7 @@ defmodule Atex.XRPC.UnauthedClient do
   def get(%__MODULE__{endpoint: endpoint} = client, resource, opts \\ []) do
     (opts ++ [method: :get, url: Atex.XRPC.url(endpoint, resource)])
     |> Req.new()
+    |> Atex.Telemetry.attach_req_plugin(client_type: :unauthed)
     |> Req.request()
     |> case do
       {:ok, response} -> {:ok, response, client}
@@ -38,6 +39,7 @@ defmodule Atex.XRPC.UnauthedClient do
   def post(%__MODULE__{endpoint: endpoint} = client, resource, opts \\ []) do
     (opts ++ [method: :post, url: Atex.XRPC.url(endpoint, resource)])
     |> Req.new()
+    |> Atex.Telemetry.attach_req_plugin(client_type: :unauthed)
     |> Req.request()
     |> case do
       {:ok, response} -> {:ok, response, client}

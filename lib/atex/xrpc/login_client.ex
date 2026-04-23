@@ -80,20 +80,29 @@ defmodule Atex.XRPC.LoginClient do
   """
   @spec refresh(t()) :: {:ok, t()} | {:error, any()}
   def refresh(%__MODULE__{endpoint: endpoint, refresh_token: refresh_token} = client) do
-    request =
-      Req.new(method: :post, url: XRPC.url(endpoint, "com.atproto.server.refreshSession"))
-      |> put_auth(refresh_token)
+    Atex.Telemetry.span(
+      [:atex, :xrpc, :token_refresh],
+      %{client_type: :login},
+      fn ->
+        request =
+          Req.new(method: :post, url: XRPC.url(endpoint, "com.atproto.server.refreshSession"))
+          |> put_auth(refresh_token)
 
-    case Req.request(request) do
-      {:ok, %{body: %{"accessJwt" => access_token, "refreshJwt" => refresh_token}}} ->
-        {:ok, %{client | access_token: access_token, refresh_token: refresh_token}}
+        result =
+          case Req.request(request) do
+            {:ok, %{body: %{"accessJwt" => access_token, "refreshJwt" => refresh_token}}} ->
+              {:ok, %{client | access_token: access_token, refresh_token: refresh_token}}
 
-      {:ok, response} ->
-        {:error, response}
+            {:ok, response} ->
+              {:error, response}
 
-      err ->
-        err
-    end
+            err ->
+              err
+          end
+
+        {result, %{}}
+      end
+    )
   end
 
   @impl true
@@ -109,7 +118,11 @@ defmodule Atex.XRPC.LoginClient do
   @spec request(t(), keyword()) :: {:ok, Req.Response.t(), t()} | {:error, any()}
   defp request(client, opts) do
     with {:ok, client} <- validate_client(client) do
-      request = opts |> Req.new() |> put_auth(client.access_token)
+      request =
+        opts
+        |> Req.new()
+        |> put_auth(client.access_token)
+        |> Atex.Telemetry.attach_req_plugin(client_type: :login)
 
       case Req.request(request) do
         {:ok, %{status: 200} = response} ->

@@ -47,15 +47,33 @@ defmodule Atex.IdentityResolver do
   def resolve(identifier, opts \\ []) do
     opts = Keyword.validate!(opts, skip_cache: false)
     skip_cache = Keyword.get(opts, :skip_cache)
+    identifier_type = if String.starts_with?(identifier, "did:"), do: :did, else: :handle
 
-    cache_result = if skip_cache, do: {:error, :not_found}, else: Cache.get(identifier)
+    Atex.Telemetry.span(
+      [:atex, :identity_resolver, :resolve],
+      %{identifier: identifier, identifier_type: identifier_type},
+      fn ->
+        cache_result = if skip_cache, do: {:error, :not_found}, else: Cache.get(identifier)
 
-    # If cache fetch succeeds, then the ok tuple will be retuned by the default `with` behaviour
-    with {:error, :not_found} <- cache_result,
-         {:ok, identity} <- do_resolve(identifier),
-         identity <- Cache.insert(identity) do
-      {:ok, identity}
-    end
+        cache_event = if match?({:ok, _}, cache_result), do: :hit, else: :miss
+
+        Atex.Telemetry.execute(
+          [:atex, :identity_resolver, :cache, cache_event],
+          %{system_time: System.system_time()},
+          %{identifier: identifier}
+        )
+
+        # If cache fetch succeeds, then the ok tuple will be retuned by the default `with` behaviour
+        result =
+          with {:error, :not_found} <- cache_result,
+               {:ok, identity} <- do_resolve(identifier),
+               identity <- Cache.insert(identity) do
+            {:ok, identity}
+          end
+
+        {result, %{}}
+      end
+    )
   end
 
   @spec do_resolve(identity :: String.t()) ::
