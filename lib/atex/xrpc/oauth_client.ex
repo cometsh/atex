@@ -237,6 +237,7 @@ defmodule Atex.XRPC.OAuthClient do
             opts
             |> Keyword.put(:url, url)
             |> Req.new()
+            |> Atex.XRPC.attach_user_agent()
             |> Req.Request.put_header("authorization", "DPoP #{session.access_token}")
             |> Atex.Telemetry.attach_req_plugin(client_type: :oauth)
 

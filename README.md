@@ -4,7 +4,7 @@ An Elixir toolkit for the [AT Protocol](https://atproto.com).
 
 ## Feature map
 
-- [x] ATProto strings
+- [x] atproto strings
   - [x] `at://` links
   - [x] TIDs
   - [x] NSIDs

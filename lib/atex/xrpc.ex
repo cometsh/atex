@@ -164,6 +164,7 @@ defmodule Atex.XRPC do
   def unauthed_get(endpoint, name, opts \\ []) do
     (opts ++ [method: :get, url: url(endpoint, name)])
     |> Req.new()
+    |> attach_user_agent()
     |> Atex.Telemetry.attach_req_plugin(client_type: :unauthed)
     |> Req.request()
   end
@@ -176,6 +177,7 @@ defmodule Atex.XRPC do
   def unauthed_post(endpoint, name, opts \\ []) do
     (opts ++ [method: :post, url: url(endpoint, name)])
     |> Req.new()
+    |> attach_user_agent()
     |> Atex.Telemetry.attach_req_plugin(client_type: :unauthed)
     |> Req.request()
   end
@@ -190,6 +192,27 @@ defmodule Atex.XRPC do
   """
   @spec url(String.t(), String.t()) :: String.t()
   def url(endpoint, resource) when is_binary(endpoint), do: "#{endpoint}/xrpc/#{resource}"
+
+  # TODO: if cross-cutting request concerns (user-agent, auth, telemetry) accumulate
+  # further, consider a shared build_request/2 that all clients use as their starting point.
+  @doc """
+  Attach the `User-Agent` header to a `Req.Request`.
+
+  Sets the `user-agent` header based on the `:user_agent` config key (see
+  `Atex.Config.user_agent/0`). All built-in XRPC clients call this when
+  building requests. Custom `Atex.XRPC.Client` implementations should call
+  this too.
+
+  ## Example
+
+      Req.new(method: :get, url: url)
+      |> Atex.XRPC.attach_user_agent()
+      |> Atex.Telemetry.attach_req_plugin(client_type: :login)
+      |> Req.request()
+  """
+  @spec attach_user_agent(Req.Request.t()) :: Req.Request.t()
+  def attach_user_agent(req),
+    do: Req.Request.put_header(req, "user-agent", Atex.Config.user_agent())
 
   @spec put_params(keyword(), struct()) :: keyword()
   defp put_params(keyword, %{params: params}),

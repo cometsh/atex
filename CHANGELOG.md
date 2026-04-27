@@ -34,6 +34,9 @@ and this project adheres to
 - Optional `:telemetry` instrumentation via `Atex.Telemetry`. Add `{:telemetry, "~> 1.0"}` to
   your deps to receive events from XRPC requests, identity resolution, OAuth flows, and service
   auth validation. See `Atex.Telemetry` for the full event catalogue.
+- New `:user_agent` config key under `config :atex`. When set, all outgoing XRPC
+  requests include a `User-Agent` header of `"<user_agent> (atex/<version>)"`.
+  Defaults to `"atex/<version>"`. See `Atex.Config.user_agent/0`.
 
 ### Fixed
 

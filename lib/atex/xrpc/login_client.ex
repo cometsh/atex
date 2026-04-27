@@ -86,6 +86,7 @@ defmodule Atex.XRPC.LoginClient do
       fn ->
         request =
           Req.new(method: :post, url: XRPC.url(endpoint, "com.atproto.server.refreshSession"))
+          |> Atex.XRPC.attach_user_agent()
           |> put_auth(refresh_token)
 
         result =
@@ -121,6 +122,7 @@ defmodule Atex.XRPC.LoginClient do
       request =
         opts
         |> Req.new()
+        |> Atex.XRPC.attach_user_agent()
         |> put_auth(client.access_token)
         |> Atex.Telemetry.attach_req_plugin(client_type: :login)
 

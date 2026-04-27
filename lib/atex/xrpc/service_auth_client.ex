@@ -54,6 +54,7 @@ defmodule Atex.XRPC.ServiceAuthClient do
     req =
       opts
       |> Req.new()
+      |> Atex.XRPC.attach_user_agent()
       |> put_auth(client.token)
       |> Atex.Telemetry.attach_req_plugin(client_type: :service_auth)
 
