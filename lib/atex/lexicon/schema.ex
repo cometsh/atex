@@ -96,12 +96,14 @@ defmodule Atex.Lexicon.Schema do
 
   # General types
 
-  @ref_value {:string,
-   {
-     :regex,
-     # TODO: minlength 1
-     ~r/^(?=.)(?:[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?:\.[a-zA-Z](?:[a-zA-Z]{0,61}[a-zA-Z])?))?(?:#[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)?$/
-   }}
+  defp ref_value do
+    {:string,
+     {
+       :regex,
+       # TODO: minlength 1
+       ~r/^(?=.)(?:[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?:\.[a-zA-Z](?:[a-zA-Z]{0,61}[a-zA-Z])?))?(?:#[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)?$/
+     }}
+  end
 
   @positive_int {:integer, {:gte, 0}}
   @nonzero_positive_int {:integer, {:gt, 0}}
@@ -111,13 +113,13 @@ defmodule Atex.Lexicon.Schema do
   defschema :ref, %{
     type: {:required, {:literal, "ref"}},
     description: :string,
-    ref: {:required, @ref_value}
+    ref: {:required, ref_value()}
   }
 
   defschema :ref_union, %{
     type: {:required, {:literal, "union"}},
     description: :string,
-    refs: {:required, {:list, @ref_value}}
+    refs: {:required, {:list, ref_value()}}
   }
 
   defschema :array, %{
